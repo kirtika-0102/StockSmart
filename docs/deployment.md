@@ -33,8 +33,8 @@ flowchart TD
     User --> Firewall
     Firewall --> LB
     LB -->|Serve Static Assets| StaticHost
-    LB -->|API Requests (/api/*)| API1
-    LB -->|API Requests (/api/*)| API2
+    LB -->|"API Requests (/api/*)"| API1
+    LB -->|"API Requests (/api/*)"| API2
     API1 -->|JDBC / HikariCP| DB
     API2 -->|JDBC / HikariCP| DB
     API1 -.->|Read Secrets| Vault
