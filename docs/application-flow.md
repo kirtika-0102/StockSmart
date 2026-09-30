@@ -75,7 +75,7 @@ flowchart TD
 ## 5. Authorization Flow
 ```mermaid
 flowchart TD
-    Start((Controller Method)) --> CheckPreAuth[@PreAuthorize annotation check]
+    Start((Controller Method)) --> CheckPreAuth["@PreAuthorize annotation check"]
     CheckPreAuth --> HasRole{User has required Role/Authority?}
     HasRole -- No --> Return403[Return 403 Forbidden]
     HasRole -- Yes --> HasPermission{User has resource permission?}
