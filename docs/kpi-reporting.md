@@ -7,7 +7,7 @@ This document outlines the Key Performance Indicators (KPIs) and the reporting f
 
 ### 1. Total Inventory Value
 - **Definition:** The total financial value of all current inventory on hand.
-- **Formula:** $\sum (\text{quantity\_on\_hand} \times \text{cost\_price})$
+- **Formula:** `SUM(quantity_on_hand × cost_price)`
 - **Required Data:** `INVENTORY_BALANCE.quantity_on_hand`, `PRODUCT.cost_price`, `LOCATION.location_id`
 - **Data Source:** Join between `INVENTORY_BALANCE` and `PRODUCT` tables, grouped by or filtered by location.
 - **API Requirement:** `GET /api/v1/analytics/inventory-value?locationId={id}`
@@ -16,7 +16,7 @@ This document outlines the Key Performance Indicators (KPIs) and the reporting f
 
 ### 2. Stock by Location
 - **Definition:** Total quantity and value of inventory distributed across all retail stores and warehouses.
-- **Formula:** $\sum (\text{quantity\_on\_hand})$ grouped by `location_id`
+- **Formula:** `SUM(quantity_on_hand)` grouped by `location_id`
 - **Required Data:** `INVENTORY_BALANCE.quantity_on_hand`, `LOCATION.name`
 - **Data Source:** Aggregation on `INVENTORY_BALANCE` joined with `LOCATION`.
 - **API Requirement:** `GET /api/v1/analytics/stock-by-location`
