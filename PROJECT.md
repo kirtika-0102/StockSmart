@@ -1,4 +1,4 @@
-# CLAUDE.md — StockSmart Project Guidelines
+StockSmart Project Guidelines
 
 ## Project Identity
 **StockSmart — Retail Inventory Optimization & Management System**  
