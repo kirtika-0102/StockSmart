@@ -1,6 +1,8 @@
 # StockSmart REST API Documentation
 
-**Base Path:** `/api/v1`
+> **College project scope:** This document is a **planning reference**. Implement a subset with base path `/api` or `/api/v1`. Use **roles** (`ADMIN`, `INVENTORY_MANAGER`, `STAFF`) instead of granular permission strings. Inventory endpoints update **`INVENTORY.quantity`** via `InventoryService` (optional transaction history). RFID endpoints below are **future** — not required for MVP.
+
+**Base Path:** `/api/v1` (or `/api` — pick one at implementation)
 
 ## Common Response Envelopes
 
@@ -30,24 +32,14 @@
 }
 ```
 
-### Error Response (RFC 7807 Problem Details + Envelope)
+### Error Response (simple JSON)
 ```json
 {
-  "success": false,
-  "error": {
-    "type": "https://api.stocksmart.com/errors/validation",
-    "title": "Validation Failed",
-    "status": 400,
-    "detail": "Invalid input provided.",
-    "instance": "/api/v1/products",
-    "fieldErrors": [
-      {
-        "field": "sku",
-        "message": "SKU must be unique"
-      }
-    ]
-  },
-  "message": "Validation Failed",
+  "status": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "sku", "message": "SKU must be unique" }
+  ],
   "timestamp": "2026-09-30T10:00:00Z"
 }
 ```
@@ -454,26 +446,26 @@
 - **Success (200)**: Paginated balances.
 
 ### `POST /inventory/receive`
-- **Purpose**: Receive stock (creates ledger entry).
+- **Purpose**: Stock in (manual or linked to PO receive workflow).
 - **Auth Required**: Yes
-- **Roles**: `INVENTORY_WRITE`
+- **Roles**: `INVENTORY_MANAGER`, `ADMIN`
 - **Request Body**: `{"locationId": 1, "productId": 100, "quantity": 50, "reason": "PO Receive", "referenceId": "PO-123"}`
-- **Success (201)**: Ledger transaction created, balance updated.
-- **Notes**: Must be scoped to location. Updates `INVENTORY_BALANCE` via optimistic locking.
+- **Success (201)**: Quantity increased; optional `INVENTORY_TRANSACTION` row.
+- **Notes**: Scoped to `locationId`. Updates `INVENTORY` row (create if missing).
 
 ### `POST /inventory/adjust`
 - **Purpose**: Adjust stock (cycle count correction, damage).
 - **Auth Required**: Yes
-- **Roles**: `INVENTORY_WRITE`
+- **Roles**: `INVENTORY_MANAGER`, `ADMIN`
 - **Request Body**: `{"locationId": 1, "productId": 100, "quantity": -5, "reason": "Damage"}`
-- **Success (201)**: Ledger transaction created.
+- **Success (201)**: Quantity updated; rejects if result &lt; 0.
 
 ### `GET /inventory/transactions`
-- **Purpose**: Query stock ledger transactions.
+- **Purpose**: Query optional movement history (`INVENTORY_TRANSACTION`).
 - **Auth Required**: Yes
-- **Roles**: `INVENTORY_READ`
+- **Roles**: `INVENTORY_MANAGER`, `ADMIN`, `STAFF` (read-only)
 - **Query Params**: `locationId`, `productId`, `fromDate`, `toDate`, `page`, `size`
-- **Success (200)**: Paginated ledger transactions.
+- **Success (200)**: Paginated transaction rows.
 
 ---
 
@@ -632,46 +624,21 @@
 
 ## 13. Barcode
 
-### `GET /barcodes/{barcode}`
-- **Purpose**: Lookup barcode across products.
+### `GET /products/by-barcode/{barcode}` (recommended)
+- **Purpose**: Lookup product by barcode field.
 - **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
+- **Roles**: Any authenticated role
 - **Path Params**: `barcode` (String)
-- **Success (200)**: Returns matched entity (Product).
-- **Notes**: GS1 compliance support (EAN-13, UPC-A, GS1-128).
+- **Success (200)**: Product response.
+- **Notes**: Plain string match; no GS1 parsing required.
 
-### `POST /barcodes`
-- **Purpose**: Register a new barcode to a product.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Request Body**: `{"productId": 1, "barcode": "...", "type": "EAN_13"}`
-- **Success (201)**: Barcode registered.
+Barcode is set via **Product** create/update (`barcode` field), not a separate identifiers table.
 
 ---
 
-## 14. RFID
+## 14. RFID (future — not MVP)
 
-### `GET /rfid/tags/{epc}`
-- **Purpose**: Lookup RFID tag (EPC Gen2/SGTIN-96).
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_READ`
-- **Path Params**: `epc` (String)
-- **Success (200)**: RFID tag details, linked product.
-
-### `POST /rfid/register`
-- **Purpose**: Register an RFID tag to a product instance.
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_WRITE`
-- **Request Body**: `{"epc": "...", "productId": 1}`
-- **Success (201)**: Tag registered.
-
-### `POST /rfid/intake`
-- **Purpose**: Bulk scan intake via RFID portal (EPCIS compatible).
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_WRITE`
-- **Request Body**: `{"locationId": 1, "tags": ["...", "..."], "idempotencyKey": "uuid"}`
-- **Success (200)**: Processes valid tags, updates inventory.
-- **Notes**: Supports idempotency keys for offline resilience.
+Planned for post-project: EPC lookup, tag registration, bulk intake. See [barcode-rfid.md](./barcode-rfid.md). **Do not implement** for initial submission unless explicitly extended.
 
 ---
 
@@ -723,11 +690,11 @@
 - **Success (200)**: List of low stock products.
 
 ### `GET /dashboard/recent-activity`
-- **Purpose**: Get recent ledger activities.
+- **Purpose**: Get recent inventory transactions or orders (optional).
 - **Auth Required**: Yes
-- **Roles**: `DASHBOARD_READ`
+- **Roles**: Authenticated users with dashboard access
 - **Query Params**: `limit`
-- **Success (200)**: Recent activities.
+- **Success (200)**: Recent activity list.
 
 ---
 

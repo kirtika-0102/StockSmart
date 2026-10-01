@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:oracle:thin:@localhost:1521/FREEPDB1}
+    username: ${SPRING_DATASOURCE_USERNAME:stocksmart}
+    password: ${SPRING_DATASOURCE_PASSWORD:stocksmart}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+      initialization-fail-timeout: -1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+        format_sql: true
+        boot.allow_jdbc_metadata_access: false
+    show-sql: false
+
+logging:
+  level:
+    com.stocksmart: info

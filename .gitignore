@@ -1,0 +1,5 @@
+# Local tooling caches (not committed)
+.tmp/
+.npm-cache/
+.m2/
+.mvn-home/

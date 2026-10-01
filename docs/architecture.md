@@ -1,206 +1,208 @@
 # StockSmart Architecture Document
 
 ## 1. Architectural Style
-StockSmart follows a **Hexagonal / Layered Architecture**. The primary objective is to enforce strict separation of concerns, isolating core domain logic from external concerns like the presentation layer and data access layer.
+
+StockSmart uses a **simple monolithic layered architecture** suitable for a B.Tech demonstration project:
+
+**Angular → REST API → Controller → Service → Repository → JPA/Hibernate → Oracle**
+
+There is no microservice split, no hexagonal ports/adapters layer, and no event bus.
 
 ## 2. Major Layers
 
-### Presentation Layer (Angular SPA & REST Controllers)
-- **Angular SPA:** Uses Standalone Components, Reactive Forms, and Signals/RxJS for state management. It is divided into Smart (container) and Presentational (UI) components.
-- **REST API:** Spring Boot `@RestController`s serve as the primary entry point for client requests, validating incoming payload using Jakarta Validation and mapping them to DTOs.
+### Presentation — Angular SPA
 
-### Application Layer (Services, DTOs, Mappers)
-- Acts as the orchestrator for business use cases.
-- Employs **MapStruct** to convert between Domain Entities and request/response DTOs (ensuring JPA Entities are never exposed in the REST layer).
-- Manages transaction boundaries (e.g., `@Transactional`).
+- Standalone components, Reactive Forms, HttpClient
+- Pages: login, dashboard, master data, inventory workflows, reports
+- JWT attached via `AuthInterceptor`; routes protected by guards
 
-### Domain Layer (Entities, Business Rules, Ledger Engine)
-- The heart of the system.
-- Contains the core **Double-Entry Stock Ledger Engine**, which ensures that inventory is never mutated in place.
-- Defines JPA Entities with no Lombok `@Data` annotations to prevent infinite recursion and lazy-loading issues. Uses explicit `@Getter`, `@Setter`, and business keys for `equals`/`hashCode`.
+### Presentation — REST controllers
 
-### Infrastructure Layer (Repositories, Oracle Adapters, External Integrators)
-- **Repositories:** Spring Data JPA interfaces for database access.
-- **Database:** Oracle Database (19c/21c/23ai) using Flyway for schema migrations.
-- **Integrations:** Handles integration with GS1/EPCIS barcode and RFID scanners.
+- Spring `@RestController` endpoints
+- Jakarta Validation on request DTOs
+- Returns response DTOs (not entities)
 
-## 3. Communication Between Layers
-- **Dependency Direction:** Dependencies point inwards. Presentation depends on Application; Application depends on Domain and Infrastructure abstractions.
-- **Interfaces:** Services typically implement interfaces defined in the domain layer, promoting loose coupling.
+### Service layer
 
-## 4. Error Handling
-- Follows **RFC 7807 Problem Details** for HTTP APIs.
-- Global exception handling is implemented via `@RestControllerAdvice`, converting business exceptions into standard JSON envelopes.
+- Business rules: stock checks, order confirmation, PO receiving, transfers
+- Transaction boundaries (`@Transactional`)
+- Manual DTO ↔ entity mapping
 
-## 5. Validation
-- **Backend:** Jakarta Validation (`hibernate-validator`) on incoming DTOs.
-- **Frontend:** Angular Reactive Forms with strictly-typed models.
+### Persistence layer
 
-## 6. Logging
-- Uses SLF4J and Logback for structured logging.
-- Audit logs capture `created_by`, `updated_by`, IP, and state changes.
+- Spring Data JPA repositories
+- JPA entities mapped to Oracle tables
 
-## 7. Configuration
-- Externalized configuration using Spring Profiles (`dev`, `test`, `prod`).
-- Application properties and secrets are managed outside the codebase.
+## 3. Error Handling
 
-## 8. Security Boundaries
-- **Authentication:** Stateless JWT Authentication via Spring Security 6.x.
-- **Authorization:** Granular RBAC (Role-Based Access Control).
-- API endpoints are protected; tokens are centrally handled in Angular via `AuthInterceptor`.
+- `@RestControllerAdvice` maps exceptions to HTTP status and a **simple JSON** body (`message`, `status`, optional `errors[]`)
+- No requirement for RFC 7807 Problem Details
 
-## 9. Auditability
-- **Ledger Immutability:** `STOCK_TRANSACTION` and `AUDIT_LOG` records are NEVER updated or deleted.
-- Every state-altering action records timestamp, user, client IP, and snapshots.
+## 4. Validation
 
-## 10. Cross-Cutting Concerns
-- **Transaction Management:** `@Transactional(readOnly=true)` by default. Write operations explicitly use `@Transactional(rollbackFor=Exception.class)`.
-- **Exception Translation:** Handled by Spring Data and global advice.
-- **Caching:** Can be applied at the service layer for read-heavy operations like location lookups.
+- **Backend:** Jakarta Validation on DTOs
+- **Frontend:** Reactive Form validators
 
-## 11. Integration Points
-- **Barcode & RFID:** Keyboard-wedge event listener service, ZXing/BarcodeDetector for WebRTC camera scanning. RFID support via EPCIS-compatible event ingestion (SGTIN-96).
-- **Offline Resilience:** Client-side buffering and idempotency keys to tolerate intermittent network drops for scanners.
+## 5. Logging
 
-## 12. Double-Entry Stock Ledger Architecture
-Inventory balances are not mutated via raw updates.
-Every change generates an immutable `STOCK_TRANSACTION` that credits/debits stock. The `InventoryLedgerService` writes audit records and ledger transactions before adjusting cached `INVENTORY_BALANCE` rows.
+- SLF4J / Logback for development and debugging
 
-## 13. Optimistic Concurrency Control
-- `INVENTORY_BALANCE` entity uses JPA `@Version` to prevent race conditions during concurrent scans and checkout/receiving operations.
+## 6. Configuration
+
+- Spring profiles: `dev`, (optional) `prod`
+- Externalize datasource URL, username, password, JWT secret via environment or `application-dev.yml`
+
+## 7. Security
+
+- Stateless **JWT** after login
+- **Role-based** access: `ADMIN`, `INVENTORY_MANAGER`, `STAFF`
+- `@PreAuthorize` on sensitive endpoints
+
+## 8. Audit trail (lightweight)
+
+- Standard fields on entities: `createdAt`, `updatedAt`, optional `createdBy` / `updatedBy` via JPA auditing
+- Optional `InventoryTransaction` rows for stock movement history
+- No separate immutable audit log with full JSON snapshots (future enhancement)
+
+## 9. Inventory design
+
+- **`Inventory`:** one row per product per location (`quantity`, `reorderLevel`)
+- Changes via service methods; optional **`InventoryTransaction`** records for reporting
+- **Not used:** double-entry ledger, compensating transactions, `@Version` optimistic locking
+
+## 10. Barcode & RFID
+
+- **Barcode:** stored on `Product`; lookup by barcode API
+- **RFID:** documented as future hardware integration only
 
 ## Diagrams
 
 ### 1. High-Level System Architecture
+
 ```mermaid
 flowchart LR
-    Client["Angular SPA (Browser / Scanner)"] <-->|REST API / JSON| API["Spring Boot Backend"]
-    API <-->|JPA / Hibernate| DB[("Oracle Database (19c/21c/23ai)")]
+    Client["Angular SPA"] <-->|REST JSON| API["Spring Boot"]
+    API <-->|JPA| DB[("Oracle Database")]
 ```
 
 ### 2. Layered Architecture
+
 ```mermaid
 flowchart TD
     subgraph Presentation
-    A1["Angular Frontend"]
-    A2["Spring REST Controllers"]
+        A1["Angular Frontend"]
+        A2["REST Controllers"]
     end
-    
     subgraph Application
-    B1["Business Services"]
-    B2["DTOs & MapStruct"]
+        B1["Services"]
+        B2["DTOs"]
     end
-    
-    subgraph Domain
-    C1["JPA Entities"]
-    C2["Ledger Engine"]
-    C3["Business Rules"]
+    subgraph Persistence
+        C1["JPA Entities"]
+        C2["Spring Data Repositories"]
     end
-    
-    subgraph Infrastructure
-    D1["Spring Data Repositories"]
-    D2["Flyway Migrations"]
-    D3["External Integrations"]
-    end
-    
-    Presentation --> Application
-    Application --> Domain
-    Application --> Infrastructure
-    Infrastructure --> DB[("Oracle DB")]
+    A1 --> A2
+    A2 --> B1
+    B1 --> B2
+    B1 --> C2
+    C2 --> C1
+    C1 --> DB[("Oracle DB")]
 ```
 
 ### 3. Component Diagram
+
 ```mermaid
 flowchart TD
-    subgraph "StockSmart Application"
-        UI["Angular UI Modules"]
-        Auth["Security & JWT"]
-        Ledger["Double-Entry Ledger"]
-        Inventory["Inventory Management"]
-        Scanning["Barcode / RFID Ingestion"]
-        Data["Persistence Layer"]
+    subgraph StockSmart
+        UI["Angular UI"]
+        Auth["JWT Security"]
+        Inv["Inventory Service"]
+        Cat["Catalog & Suppliers"]
+        PO["Purchase Orders"]
+        SO["Sales Orders"]
+        KPI["Dashboard / KPIs"]
+        Data["JPA Repositories"]
     end
     UI --> Auth
-    UI --> Inventory
-    UI --> Scanning
-    Inventory --> Ledger
-    Inventory --> Data
-    Ledger --> Data
-    Scanning --> Inventory
+    UI --> Inv
+    UI --> Cat
+    UI --> PO
+    UI --> SO
+    UI --> KPI
+    Inv --> Data
+    Cat --> Data
+    PO --> Inv
+    SO --> Inv
+    KPI --> Data
 ```
 
-### 4. Request Flow Diagram
+### 4. Request Flow (example: stock adjustment)
+
 ```mermaid
 sequenceDiagram
-    participant Client as Angular Client
+    participant Client as Angular
     participant Controller as REST Controller
-    participant Mapper as MapStruct
-    participant Service as Business Service
-    participant Repo as Repository
-    participant DB as Oracle Database
+    participant Service as InventoryService
+    participant Repo as InventoryRepository
+    participant DB as Oracle
 
-    Client->>Controller: POST /api/inventory/adjust (DTO)
-    Controller->>Service: handleAdjustment(DTO)
-    Service->>Mapper: toEntity(DTO)
-    Mapper-->>Service: Entity
-    Service->>Repo: save(STOCK_TRANSACTION)
-    Repo->>DB: INSERT INTO stock_transaction
-    Service->>Repo: find(INVENTORY_BALANCE)
-    Repo->>DB: SELECT ... FROM inventory_balance
-    DB-->>Repo: Balance Record
-    Service->>Repo: save(INVENTORY_BALANCE)
-    Repo->>DB: UPDATE inventory_balance (Check @Version)
-    Service->>Mapper: toDto(Entity)
-    Mapper-->>Service: Response DTO
+    Client->>Controller: POST /api/inventory/adjust
+    Controller->>Service: adjustStock(dto)
+    Service->>Repo: findByProductAndLocation
+    Repo->>DB: SELECT
+    DB-->>Repo: Inventory row
+    Service->>Service: Update quantity + optional transaction row
+    Service->>Repo: save(inventory)
+    Repo->>DB: UPDATE
     Service-->>Controller: Response DTO
-    Controller-->>Client: 200 OK (JSON)
+    Controller-->>Client: 200 OK
 ```
 
-### 5. Security Architecture Diagram
+### 5. Security Flow
+
 ```mermaid
 sequenceDiagram
-    participant User as User / Scanner
-    participant Angular as Angular Client
-    participant AuthAPI as Auth Controller
-    participant SpringSec as Spring Security
-    participant DB as Oracle DB
+    participant User
+    participant Angular as Angular
+    participant Auth as AuthController
+    participant Sec as Spring Security
+    participant DB as Oracle
 
-    User->>Angular: Enter Credentials
-    Angular->>AuthAPI: POST /api/auth/login
-    AuthAPI->>SpringSec: Authenticate
-    SpringSec->>DB: Fetch User & Roles
-    DB-->>SpringSec: User Details
-    SpringSec-->>AuthAPI: Auth Success
-    AuthAPI-->>Angular: JWT Token
-    Angular->>Angular: Store Token in AuthInterceptor
-    User->>Angular: Access Protected Resource
-    Angular->>SpringSec: Request + JWT (Authorization: Bearer)
-    SpringSec->>SpringSec: Validate Token Signature & Claims
-    SpringSec-->>Angular: Authorized Response
+    User->>Angular: Credentials
+    Angular->>Auth: POST /api/auth/login
+    Auth->>Sec: Authenticate
+    Sec->>DB: Load user and roles
+    DB-->>Sec: User
+    Sec-->>Auth: OK
+    Auth-->>Angular: JWT
+    Angular->>Sec: API call + Bearer token
+    Sec-->>Angular: Authorized response
 ```
 
-### 6. Double-Entry Ledger Architecture
+### 6. Inventory Data Model (conceptual)
+
 ```mermaid
 erDiagram
-    LOCATION ||--o{ INVENTORY_BALANCE : "has"
-    PRODUCT ||--o{ INVENTORY_BALANCE : "has"
-    INVENTORY_BALANCE ||--o{ STOCK_TRANSACTION : "adjusted by"
-    
-    INVENTORY_BALANCE {
+    LOCATION ||--o{ INVENTORY : holds
+    PRODUCT ||--o{ INVENTORY : stocked_as
+    PRODUCT ||--o{ INVENTORY_TRANSACTION : optional_history
+    LOCATION ||--o{ INVENTORY_TRANSACTION : at
+
+    INVENTORY {
         Long id PK
-        Long location_id FK
         Long product_id FK
+        Long location_id FK
         Integer quantity
-        Integer version "JPA @Version"
+        Integer reorder_level
     }
-    
-    STOCK_TRANSACTION {
+
+    INVENTORY_TRANSACTION {
         Long id PK
-        Long location_id FK
         Long product_id FK
-        Integer quantity_change
+        Long location_id FK
         String transaction_type
-        Timestamp created_at "Immutable"
-        String created_by "Immutable"
+        Integer quantity_change
+        String reference
+        DateTime created_at
     }
 ```
