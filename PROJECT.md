@@ -1,100 +1,241 @@
-StockSmart Project Guidelines
+# StockSmart — B.Tech Project Specification
 
-## Project Identity
-**StockSmart — Retail Inventory Optimization & Management System**  
-Enterprise-grade multi-location retail inventory management, stock ledger, purchasing, transfer, barcode scanning, RFID-ready intake, and analytics system.
+## Purpose
 
----
+**StockSmart** is a college-level (B.Tech) full-stack project that demonstrates retail inventory management using:
 
-## Technology Stack
+- **Frontend:** Angular (standalone components), TypeScript, Reactive Forms, HttpClient
+- **Backend:** Java, Spring Boot, Spring Data JPA, Hibernate, Spring Security, REST APIs
+- **Database:** Oracle Database
 
-### Frontend
-- **Framework:** Angular (v17+)
-- **Language:** TypeScript 5.x
-- **Markup & Styling:** HTML5, CSS3 / SCSS
-- **State Management & Reactivity:** RxJS, Signals / Store services
-- **UI Components:** Modular, accessible components (Angular Material / Tailwind CSS design tokens)
-- **Scanning Integration:** ZXing / BarcodeDetector API for WebRTC camera scanning, Keyboard-wedge event listener service
-
-### Backend
-- **Framework:** Java 17 / 21 LTS, Spring Boot 3.x
-- **Data Persistence:** Spring Data JPA, Hibernate 6.x
-- **Security:** Spring Security 6.x (Stateless JWT Authentication, Granular RBAC)
-- **Boilerplate Reduction:** Project Lombok
-- **Mapping:** MapStruct
-- **Validation:** Jakarta Validation (`hibernate-validator`)
-- **API Documentation:** OpenAPI 3 / Springdoc-OpenAPI
-
-### Database
-- **Engine:** Oracle Database (19c / 21c / 23ai Free)
-- **Schema Management:** Flyway database migrations
-- **Connection Pooling:** HikariCP
-- **Dialect:** `org.hibernate.dialect.OracleDialect`
-
-### Architecture Principles
-- **Hexagonal / Layered Architecture:** Strict separation between Presentation (REST Controllers), Application (Services/DTOs), Domain (Entities, Rules, Ledger Engine), and Infrastructure (Repositories, Oracle Adapters, External Integrators).
-- **Double-Entry Stock Ledger:** Inventory is never mutated through raw in-place updates. Every change in stock creates an immutable `STOCK_TRANSACTION` ledger entry that adjusts location balances.
-- **Optimistic Concurrency Control:** Balance records (`INVENTORY_BALANCE`) utilize JPA `@Version` to prevent race conditions during concurrent scans and checkout/receiving operations.
-- **GS1 & EPCIS Compliance:** Barcodes follow GS1 standards (EAN-13, UPC-A, GS1-128); RFID tags follow EPC Gen2 (SGTIN-96) standards with an EPCIS-compatible event ingestion pipeline.
+This is **not** a production enterprise platform. The goal is a **well-structured, functional, demonstrable** application with clear layers, CRUD, business workflows, authentication, KPIs, and Mermaid documentation that matches the **actual** implementation.
 
 ---
 
-## Build, Test, and Run Commands
+## Architecture (College Level)
 
-### Backend (Spring Boot)
-Located in `/backend` (when scaffolding commences):
-- **Build without tests:** `./mvnw clean package -DskipTests`
-- **Run local dev server:** `./mvnw spring-boot:run` (Active profile: `dev`)
-- **Run all unit tests:** `./mvnw test`
-- **Run integration tests:** `./mvnw verify -Pintegration-tests`
-- **Flyway migration check:** `./mvnw flyway:info`
+Simple **monolithic layered** architecture:
 
-### Frontend (Angular)
-Located in `/frontend` (when scaffolding commences):
-- **Install dependencies:** `npm install`
-- **Run dev server:** `npm start` or `ng serve --port 4200`
-- **Build production bundle:** `npm run build -- --configuration production`
-- **Run unit tests:** `npm test -- --watch=false --browsers=ChromeHeadless`
-- **Lint code:** `npm run lint`
+```mermaid
+flowchart TB
+    UI["Angular SPA"]
+    API["REST Controllers"]
+    SVC["Services"]
+    REPO["Repositories"]
+    JPA["JPA / Hibernate"]
+    DB[("Oracle Database")]
 
-### Full Stack Docker Orchestration
-- **Spin up local Oracle DB & services:** `docker compose -f docker-compose.dev.yml up -d`
-- **View container logs:** `docker compose -f docker-compose.dev.yml logs -f`
-- **Tear down environment:** `docker compose -f docker-compose.dev.yml down -v`
+    UI -->|HTTP JSON| API
+    API --> SVC
+    SVC --> REPO
+    REPO --> JPA
+    JPA --> DB
+```
+
+### Backend package layout
+
+```
+com.stocksmart
+├── config/
+├── exception/
+├── security/
+├── auth/
+├── user/
+├── product/
+├── category/
+├── supplier/
+├── location/
+├── inventory/
+├── transfer/
+├── purchase/
+├── order/
+├── alert/
+├── dashboard/
+└── report/
+```
+
+Each feature package contains: `controller`, `service`, `repository`, `entity`, `dto`.
+
+Shared layers: `controller/`, `service/`, `repository/`, `entity/`, `dto/`, `config/`, `exception/` may also be used as a single-package-per-layer tree during early scaffolding.
+
+### Explicitly out of scope (architecture)
+
+- Microservices, event-driven design, CQRS, Kafka, Redis
+- Hexagonal / ports-and-adapters as a formal architecture
+- Double-entry accounting ledger, immutable stock transactions
+- Optimistic concurrency (`@Version`) on inventory rows
+- Flyway (schema via JPA `ddl-auto` or manual Oracle scripts for demo)
+- MapStruct (manual DTO mapping is acceptable)
+- RFC 7807 Problem Details (simple JSON error responses instead)
 
 ---
 
-## Code Quality & Engineering Conventions
+## Security
 
-### Java Backend Conventions
-1. **No Lombok `@Data` on JPA Entities:** Always use `@Getter`, `@Setter`, `@ToString(exclude = {...})`, and explicit `equals`/`hashCode` based on business key (or surrogate ID if persisted) to prevent infinite recursion and lazy-loading hazards.
-2. **DTO Invariant:** Never expose JPA Entities directly in REST Controllers. Always map via MapStruct to request/response DTOs.
-3. **Transaction Boundaries:** Mark business service methods with `@Transactional(readOnly = true)` by default at class level; mark write operations with explicit `@Transactional(rollbackFor = Exception.class)`.
-4. **RFC 7807 Problem Details:** Global exception handling using `@RestControllerAdvice` returning `ProblemDetail` or custom RFC 7807 compliant JSON envelopes.
-5. **No Direct Balance Overwrites:** Stock adjustments, receives, sales, and transfers must invoke the `InventoryLedgerService` which writes audit records and ledger transactions before adjusting cached balances.
-
-### Angular Frontend Conventions
-1. **Standalone Components:** Adopt Angular standalone components, directives, and pipes.
-2. **Reactive Forms:** All business forms (Product, PO, Transfer, Adjustment) must use strictly-typed `ReactiveFormsModule`.
-3. **Smart & Presentational (Dumb) Components:** Separate container components (data fetching, state dispatching) from presentational components (`@Input()`, `@Output()`, pure UI).
-4. **Unsubscribe Safety:** Utilize `takeUntilDestroyed()`, `AsyncPipe`, or Signals to prevent memory leaks from dangling Observable subscriptions.
-5. **Route Guards & Interceptors:** Centralize token authorization in `AuthInterceptor`, error handling in `HttpErrorInterceptor`, and route protection in functional `CanActivateFn` guards.
+- **Authentication:** Login with username/password; **JWT** access token (straightforward implementation).
+- **Authorization:** Role-based access with **three roles:**
+  - `ADMIN` — users, full access
+  - `INVENTORY_MANAGER` — inventory, POs, transfers, reports
+  - `STAFF` — read inventory, create orders, basic operations
+- Enforce roles on REST endpoints (`@PreAuthorize("hasRole('...')")`) and Angular route guards.
+- Passwords hashed with **BCrypt**.
 
 ---
 
-## Git Workflow & Commit Guidelines
+## Inventory model (simplified)
 
-- **Branch naming:** `feature/<module>-<description>`, `bugfix/<ticket>-<description>`, `docs/<description>`
-- **Commit messages:** Follow Conventional Commits:
-  - `feat(inventory): implement double-entry stock ledger transaction engine`
-  - `fix(rfid): resolve SGTIN-96 bit shift parsing error`
-  - `docs(api): document stock transfer approval endpoints`
-  - `test(po): add testcontainers integration test for receiving workflow`
+Per **product** and **location**:
+
+- Current **quantity**
+- **Reorder level** (for low-stock alerts)
+
+Stock changes happen in **service layer** business methods:
+
+| Operation        | Behavior |
+|------------------|----------|
+| Stock In         | Increase quantity (e.g. PO receive) |
+| Stock Out        | Decrease quantity (e.g. sale/order) |
+| Adjustment       | Set or delta quantity with reason |
+| Transfer         | Decrease source, increase destination |
+
+Optional **`InventoryTransaction`** rows record history (type, quantity, reference, user, timestamp) for reports and demonstration — **not** an immutable accounting ledger.
 
 ---
 
-## Architectural Rules & Hard Invariants
-1. **Ledger Immutability:** Records in `STOCK_TRANSACTION` and `AUDIT_LOG` must NEVER be updated or deleted. Corrections must be handled by compensatory reversal transactions.
-2. **Multi-Location Scoping:** Every inventory, order, transfer, and scanning operation must be explicitly scoped to a `LOCATION_ID` (Store or Warehouse).
-3. **Audit Trail:** Every state-altering action must record `created_by`, `created_at`, `updated_by`, `updated_at`, client IP, and previous/new state snapshot.
-4. **Offline Resilience for Scanners:** The scanning architecture must support client-side scan buffering and idempotency keys to tolerate intermittent network drops.
+## Barcode (academic)
+
+- `Product.barcode` (unique, optional until assigned)
+- Manual entry and search by barcode
+- Keyboard-wedge / fast input in a dedicated field (no GS1 parser required)
+- Optional: camera scan via browser API if time permits
+
+**Not in scope:** GS1 compliance, EPCIS, offline scan queues, idempotency keys.
+
+---
+
+## RFID (future)
+
+- Document only: placeholder field or design note on `Product` (`rfidTag` optional)
+- **No** hardware integration, SGTIN-96 parsing, or EPCIS pipeline in MVP
+- Real RFID hardware integration is a **future enhancement**
+
+---
+
+## Workflows (simplified)
+
+### Sales order
+
+`Order` → `OrderItem` → **Confirm** → reduce stock at location → `COMPLETED`
+
+### Purchase order
+
+`PurchaseOrder` → `PurchaseOrderItem` → **Received** → increase stock at destination location
+
+### Stock transfer
+
+Create transfer → complete (deduct source, add destination) in one service transaction for demo clarity.
+
+---
+
+## Frontend pages
+
+| Page | Purpose |
+|------|---------|
+| Login | Authentication |
+| Dashboard | KPI widgets |
+| Products | Product CRUD, barcode |
+| Categories | Category CRUD |
+| Suppliers | Supplier CRUD, link products |
+| Locations | Store/warehouse CRUD |
+| Inventory | Levels, stock in/out, adjustments |
+| Stock Transfers | Inter-location moves |
+| Purchase Orders | Create, receive |
+| Orders | Create, confirm, complete |
+| Alerts | Low / out of stock |
+| Reports | Tables/exports from DB metrics |
+| Users | Admin user management |
+
+Use **Reactive Forms**, **HttpClient**, **AuthInterceptor**, functional **route guards**. No mandatory NgRx.
+
+---
+
+## KPI dashboard (from real data)
+
+- Total products
+- Total inventory quantity (all locations)
+- Total inventory value (quantity × product unit cost/price)
+- Low-stock count (quantity < reorder level)
+- Out-of-stock count (quantity = 0)
+- Products by category
+- Stock by location
+- Pending purchase orders
+- Total orders
+
+No ML forecasting.
+
+---
+
+## Database entities (implementation target)
+
+| Entity | Notes |
+|--------|--------|
+| `User` | Credentials, profile, active flag |
+| `Role` | ADMIN, INVENTORY_MANAGER, STAFF |
+| `UserRole` | Many-to-many (or role enum on User) |
+| `Category` | Optional parent for hierarchy |
+| `Product` | SKU, name, price/cost, category, **barcode** |
+| `Location` | Name, type (STORE/WAREHOUSE) |
+| `Inventory` | product + location + quantity + reorder_level |
+| `InventoryTransaction` | Optional movement history |
+| `Supplier` | Contact fields |
+| `SupplierProduct` | supplier ↔ product, unit cost |
+| `PurchaseOrder` | supplier, location, status |
+| `PurchaseOrderItem` | lines, qty ordered/received |
+| `Order` | location, status, totals |
+| `OrderItem` | lines |
+| `StockTransfer` | source, dest, status |
+| `StockTransferItem` | lines |
+| `Alert` | Low-stock / out-of-stock alerts |
+
+**Removed vs enterprise docs:** `Permission`, `RolePermission`, `Brand`, `ProductIdentifier` table, heavy `AuditLog` CLOB snapshots.
+
+---
+
+## Documentation map
+
+| Document | Role |
+|----------|------|
+| `PROJECT.md` | This file — college scope & entities |
+| `README.md` | Setup, run, demo |
+| `TODO.md` | Implementation phases |
+| `CLAUDE.md` | Agent/dev conventions (simplified) |
+| `docs/architecture.md` | Layered monolith + diagrams |
+| `docs/database.md` | ER model for Oracle |
+| `docs/requirements.md` | Functional requirements |
+| Other `docs/*` | Flows, API sketch, security, KPIs, testing |
+
+Existing documentation is **preserved**. Enterprise sections were **replaced** so diagrams and text match this specification.
+
+---
+
+## Implementation phases
+
+0. Documentation alignment (this file and `docs/`)
+1. Project scaffolding (Spring Boot + Angular layout, Oracle/JPA config)
+2. Security and users (JWT, three roles)
+3. Master data (categories, products, locations, suppliers)
+4. Inventory core + barcode lookup
+5. Purchase orders, sales orders, transfers
+6. Alerts and KPI dashboard
+7. Demo polish and seed data
+
+---
+
+## Future enhancements (post-project)
+
+- Real RFID readers and tag encoding (EPC Gen2)
+- GS1 barcode validation and application identifiers
+- Double-entry immutable stock ledger and audit snapshots
+- Flyway migrations, MapStruct, RFC 7807, refresh-token rotation
+- Offline scanner buffering, optimistic locking, multi-node deployment
+- Advanced analytics / demand forecasting

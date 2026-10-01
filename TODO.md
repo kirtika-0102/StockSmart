@@ -2,7 +2,7 @@
 
 Track progress for the B.Tech project. See [PROJECT.md](./PROJECT.md) for scope.
 
-**Status:** Documentation simplified for college-level architecture. **Application code not started.**
+**Status:** Phase 0 documentation alignment complete. **Do not treat business modules as implemented.** Next: Phase 1 scaffolding (Spring Boot + Angular foundation only).
 
 ---
 

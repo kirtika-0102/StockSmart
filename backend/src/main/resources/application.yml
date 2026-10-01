@@ -7,6 +7,10 @@ spring:
 server:
   port: 8080
 
+jwt:
+  secret: ${JWT_SECRET:StockSmartCollegeJwtSecretKeyMustBeAtLeast32Bytes!}
+  expiration-ms: ${JWT_EXPIRATION_MS:28800000}
+
 management:
   endpoints:
     web:

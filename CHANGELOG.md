@@ -4,6 +4,11 @@ All notable documentation and project changes for StockSmart.
 
 ## [Unreleased]
 
+### Changed — Canonical spec restored (2026-10-01)
+
+- Restored **PROJECT.md** as the B.Tech college-level specification (replaced leftover enterprise/hexagonal/ledger guidelines).
+- Restored **CLAUDE.md** to match the simplified layered architecture.
+
 ### Changed — College-level scope (2026-09-30)
 
 - Added **PROJECT.md** as the canonical B.Tech project specification.
