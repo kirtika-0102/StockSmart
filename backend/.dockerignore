@@ -1,0 +1,10 @@
+target/
+.mvn/wrapper/*.jar.tmp
+.git/
+.gitignore
+*.md
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.log
