@@ -7,7 +7,8 @@
  *    or can be set directly to your Render backend URL:
  *    e.g. 'https://stocksmart-backend.onrender.com/api'
  */
+
 export const environment = {
   production: true,
-  apiBaseUrl: (typeof window !== 'undefined' && (window as any).__STOCKSMART_API_BASE_URL__) || '/api'
+  apiBaseUrl: 'https://stocksmart-it29.onrender.com/api'
 };
