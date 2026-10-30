@@ -1,0 +1,77 @@
+<section class="categories-page">
+  <header class="page-head">
+    <div>
+      <h1>Categories</h1>
+      <p>Organize the product catalog. Optional parent creates a simple hierarchy.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Catalog groups</h2>
+      @if (loading) {
+        <p class="muted">Loading categories…</p>
+      } @else if (categories.length === 0) {
+        <p class="muted">No categories yet. Create the first group.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Parent</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (category of categories; track category.id) {
+                <tr>
+                  <td>{{ category.name }}</td>
+                  <td>{{ category.parentName || '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="startEdit(category)">Edit</button>
+                    <button type="button" class="link danger" (click)="remove(category)">Delete</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>{{ editingId === null ? 'New category' : 'Edit category' }}</h2>
+
+      <label for="name">Name</label>
+      <input id="name" type="text" formControlName="name" autocomplete="off" />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <span class="field-error">Name is required (max 100 characters).</span>
+      }
+
+      <label for="parentId">Parent category</label>
+      <select id="parentId" formControlName="parentId">
+        <option [ngValue]="null">None (top level)</option>
+        @for (parent of parentChoices(); track parent.id) {
+          <option [ngValue]="parent.id">{{ parent.name }}</option>
+        }
+      </select>
+
+      <div class="form-actions">
+        <button type="submit" [disabled]="submitting">
+          {{ submitting ? 'Saving…' : editingId === null ? 'Create category' : 'Save changes' }}
+        </button>
+        @if (editingId !== null) {
+          <button type="button" class="secondary" (click)="startCreate()">Cancel</button>
+        }
+      </div>
+    </form>
+  </div>
+</section>

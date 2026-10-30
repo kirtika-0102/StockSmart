@@ -11,6 +11,8 @@ classDiagram
         +String username
         +String email
         +String passwordHash
+        +String firstName
+        +String lastName
         +Boolean active
     }
     class Role {
@@ -47,6 +49,8 @@ classDiagram
     Category "1" -- "*" Product
     Category "0..1" -- "*" Category : parent
 ```
+
+`Category` is implemented (`CATEGORIES` table). `Product` remains Phase 3.
 
 ---
 

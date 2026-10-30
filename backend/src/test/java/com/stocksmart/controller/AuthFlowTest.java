@@ -32,9 +32,7 @@ class AuthFlowTest {
     void loginWithSeededAdminReturnsJwt() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username":"admin","password":"Admin@123"}
-                                """))
+                        .content("{\"username\":\"admin\",\"password\":\"Admin@123\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
@@ -44,9 +42,7 @@ class AuthFlowTest {
     void loginWithWrongPasswordReturns401() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username":"admin","password":"wrongpass"}
-                                """))
+                        .content("{\"username\":\"admin\",\"password\":\"wrongpass\"}"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -87,15 +83,13 @@ class AuthFlowTest {
     void registerCreatesStaffUserAndAllowsLogin() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "username":"newstaff",
-                                  "email":"newstaff@stocksmart.local",
-                                  "password":"Welcome@123",
-                                  "firstName":"New",
-                                  "lastName":"Staff"
-                                }
-                                """))
+                        .content("{\n"
+                                + "  \"username\":\"newstaff\",\n"
+                                + "  \"email\":\"newstaff@stocksmart.local\",\n"
+                                + "  \"password\":\"Welcome@123\",\n"
+                                + "  \"firstName\":\"New\",\n"
+                                + "  \"lastName\":\"Staff\"\n"
+                                + "}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("newstaff"))
                 .andExpect(jsonPath("$.roles[0]").value("STAFF"));

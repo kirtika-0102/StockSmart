@@ -21,10 +21,45 @@ flowchart TD
     POST --> OK{Valid?}
     OK -->|No| Err[Show error]
     OK -->|Yes| Store[Store JWT]
-    Store --> Dash[Navigate dashboard]
+    Store --> Dash[Navigate home]
 ```
 
-## 3. Product management
+## 3. Admin user management
+
+`ADMIN` opens `/users`. The Angular `roleGuard` blocks other roles. APIs live under `/api/users`.
+
+```mermaid
+flowchart TD
+    Start((Admin signed in)) --> Page[/users]
+    Page --> List[GET /api/users]
+    List --> Action{Action}
+    Action --> Create[POST /api/users]
+    Action --> Edit[PUT /api/users/id]
+    Action --> Deactivate[DELETE /api/users/id]
+    Create --> End((End))
+    Edit --> End
+    Deactivate --> Inactive[IS_ACTIVE = 0]
+    Inactive --> End
+```
+
+## 4. Category management
+
+`ADMIN` and `INVENTORY_MANAGER` open `/categories`. STAFF may call `GET /api/categories` but has no menu link.
+
+```mermaid
+flowchart TD
+    Start((Manager signed in)) --> Page[/categories]
+    Page --> List[GET /api/categories]
+    List --> Action{Action}
+    Action --> Create[POST /api/categories]
+    Action --> Edit[PUT /api/categories/id]
+    Action --> Delete[DELETE /api/categories/id]
+    Create --> End((End))
+    Edit --> End
+    Delete --> End
+```
+
+## 5. Product management
 
 ```mermaid
 flowchart TD
@@ -38,7 +73,7 @@ flowchart TD
 
 Include **barcode** on create/edit; validate uniqueness.
 
-## 4. PO receive → stock in
+## 6. PO receive → stock in
 
 ```mermaid
 flowchart TD
@@ -51,7 +86,7 @@ flowchart TD
     POStatus --> End((End))
 ```
 
-## 5. Stock adjustment
+## 7. Stock adjustment
 
 ```mermaid
 flowchart TD
@@ -65,7 +100,7 @@ flowchart TD
     Save --> End((End))
 ```
 
-## 6. Stock transfer
+## 8. Stock transfer
 
 ```mermaid
 flowchart TD
@@ -78,7 +113,7 @@ flowchart TD
 
 Optional two-step (PENDING → COMPLETED) — document chosen approach in implementation.
 
-## 7. Sales order
+## 9. Sales order
 
 ```mermaid
 flowchart TD
@@ -93,7 +128,7 @@ flowchart TD
 
 No payment gateway in MVP.
 
-## 8. Low-stock detection
+## 10. Low-stock detection
 
 ```mermaid
 flowchart TD
@@ -103,7 +138,7 @@ flowchart TD
     Alert --> End
 ```
 
-## 9. Barcode lookup
+## 11. Barcode lookup
 
 ```mermaid
 flowchart TD
@@ -116,7 +151,7 @@ flowchart TD
 
 No GS1 parsing step.
 
-## 10. RFID (future — diagram only)
+## 12. RFID (future — diagram only)
 
 ```mermaid
 flowchart TD
@@ -128,7 +163,7 @@ flowchart TD
 
 Not implemented in MVP — see [barcode-rfid.md](./barcode-rfid.md).
 
-## 11. KPI dashboard load
+## 13. KPI dashboard load
 
 ```mermaid
 flowchart TD

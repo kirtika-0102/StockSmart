@@ -1,0 +1,117 @@
+<section class="alerts-page">
+  <header class="page-head">
+    <div>
+      <h1>Stock Alerts Center</h1>
+      <p>Automated warnings for products falling below their minimum reorder thresholds.</p>
+    </div>
+    <div class="head-actions">
+      <button type="button" class="primary" [disabled]="scanning" (click)="scanAlerts()">
+        {{ scanning ? 'Scanning…' : '🔄 Scan Reorder Levels Now' }}
+      </button>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <!-- Filters row -->
+  <div class="filters-bar">
+    <div class="status-tabs">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="statusFilter === 'ACTIVE'"
+        (click)="statusFilter = 'ACTIVE'; reload()"
+      >
+        Active Alerts
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="statusFilter === 'ACKNOWLEDGED'"
+        (click)="statusFilter = 'ACKNOWLEDGED'; reload()"
+      >
+        Acknowledged
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="statusFilter === 'RESOLVED'"
+        (click)="statusFilter = 'RESOLVED'; reload()"
+      >
+        Resolved
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="statusFilter === ''"
+        (click)="statusFilter = ''; reload()"
+      >
+        All Alerts
+      </button>
+    </div>
+  </div>
+
+  <div class="panel">
+    @if (loading) {
+      <p class="muted">Loading alerts…</p>
+    } @else if (alerts.length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">✅</span>
+        <h3>No alerts found</h3>
+        <p class="muted">All stock balances are within healthy operating levels for the selected filter.</p>
+      </div>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Product</th>
+              <th>Location</th>
+              <th>Details</th>
+              <th>Status</th>
+              <th>Triggered</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (alert of alerts; track alert.id) {
+              <tr [class.row-out]="alert.alertType === 'OUT_OF_STOCK'" [class.row-low]="alert.alertType === 'LOW_STOCK'">
+                <td>
+                  <span class="alert-type-badge" [class.out]="alert.alertType === 'OUT_OF_STOCK'" [class.low]="alert.alertType === 'LOW_STOCK'">
+                    {{ alert.alertType === 'OUT_OF_STOCK' ? 'Out of Stock' : 'Low Stock' }}
+                  </span>
+                </td>
+                <td>
+                  <strong>{{ alert.productName }}</strong>
+                  <span class="sub-sku">{{ alert.productSku }}</span>
+                </td>
+                <td>{{ alert.locationName }}</td>
+                <td class="alert-msg">{{ alert.message }}</td>
+                <td>
+                  <span class="status-badge" [class.active]="alert.status === 'ACTIVE'" [class.ack]="alert.status === 'ACKNOWLEDGED'" [class.resolved]="alert.status === 'RESOLVED'">
+                    {{ alert.status }}
+                  </span>
+                </td>
+                <td class="date-col">{{ alert.createdAt }}</td>
+                <td class="actions">
+                  @if (alert.status === 'ACTIVE') {
+                    <button type="button" class="link" (click)="acknowledge(alert.id)">Acknowledge</button>
+                    <button type="button" class="link success" (click)="resolve(alert.id)">Resolve</button>
+                  } @else if (alert.status === 'ACKNOWLEDGED') {
+                    <button type="button" class="link success" (click)="resolve(alert.id)">Resolve</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>

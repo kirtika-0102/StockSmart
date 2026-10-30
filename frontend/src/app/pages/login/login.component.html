@@ -1,0 +1,32 @@
+<div class="login-page">
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()">
+    <h1>StockSmart</h1>
+    <p class="subtitle">Sign in to continue</p>
+
+    <label for="username">Username</label>
+    <input id="username" type="text" formControlName="username" autocomplete="username" />
+    @if (form.controls.username.touched && form.controls.username.invalid) {
+      <span class="field-error">Username is required (min 3 characters).</span>
+    }
+
+    <label for="password">Password</label>
+    <input id="password" type="password" formControlName="password" autocomplete="current-password" />
+    @if (form.controls.password.touched && form.controls.password.invalid) {
+      <span class="field-error">Password is required (min 8 characters).</span>
+    }
+
+    @if (errorMessage) {
+      <div class="error" role="alert">{{ errorMessage }}</div>
+    }
+
+    <button type="submit" [disabled]="submitting">
+      {{ submitting ? 'Signing in…' : 'Sign in' }}
+    </button>
+
+    <p class="hint">
+      Demo users: <code>admin</code> / <code>Admin&#64;123</code>,
+      <code>manager</code> / <code>Manager&#64;123</code>,
+      <code>staff</code> / <code>Staff&#64;123</code>
+    </p>
+  </form>
+</div>

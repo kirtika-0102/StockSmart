@@ -28,7 +28,9 @@ sequenceDiagram
 
 ### Token storage (Angular)
 
-- **sessionStorage** or in-memory service for access token (document choice in README).
+- JWT **access token** is stored in **`sessionStorage`** under `access_token`.
+- Current username, full name, and roles are stored under `auth_user` for the shell header.
+- Closing the browser tab clears the session. Logout removes both keys and returns to `/login`.
 - Send `Authorization: Bearer <token>` on each API call via **AuthInterceptor**.
 
 ### Refresh tokens
@@ -50,7 +52,8 @@ sequenceDiagram
 ### Enforcement
 
 - Spring Security `@PreAuthorize("hasRole('ADMIN')")` or `hasAnyRole(...)` on controllers/services.
-- Angular **route guards** hide menu items and block routes by role.
+- Angular **route guards** hide menu items and block routes by role (`roleGuard` + `data.roles`).
+- **User administration** (`GET/POST /api/users`, `GET/PUT/DELETE /api/users/{id}`) is **ADMIN-only**. `DELETE` deactivates the user (`IS_ACTIVE = 0`); inactive users cannot obtain a JWT. An admin cannot deactivate their own account, and the last active `ADMIN` cannot be removed.
 
 No separate `PERMISSIONS` table or `PRODUCT_READ`-style authorities required.
 

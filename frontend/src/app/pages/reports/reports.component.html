@@ -1,0 +1,109 @@
+<section class="reports-page">
+  <header class="page-head">
+    <div>
+      <h1>Inventory Reports</h1>
+      <p>Asset valuation and stock investment analysis across all warehouses and stores.</p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <!-- Grand Total Summary Cards -->
+  <div class="summary-cards">
+    <div class="card">
+      <span class="label">Total Catalog Items</span>
+      <span class="val">{{ filteredItems().length }}</span>
+    </div>
+    <div class="card">
+      <span class="label">Total Stocked Quantity</span>
+      <span class="val">{{ totalQuantity() }}</span>
+    </div>
+    <div class="card highlight">
+      <span class="label">Total Asset Valuation</span>
+      <span class="val">${{ totalValuation() }}</span>
+    </div>
+  </div>
+
+  <!-- Filters row -->
+  <div class="filters-row">
+    <div class="filter-item">
+      <label for="filterLoc">Location</label>
+      <select id="filterLoc" [(ngModel)]="locationFilter">
+        <option value="">All Locations</option>
+        @for (loc of uniqueLocations(); track loc) {
+          <option [value]="loc">{{ loc }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="filterCat">Category</label>
+      <select id="filterCat" [(ngModel)]="categoryFilter">
+        <option value="">All Categories</option>
+        @for (cat of uniqueCategories(); track cat) {
+          <option [value]="cat">{{ cat }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-item search">
+      <label for="search">Filter Product</label>
+      <input
+        id="search"
+        type="text"
+        [(ngModel)]="searchTerm"
+        placeholder="Search product or SKU…"
+        autocomplete="off"
+      />
+    </div>
+  </div>
+
+  <!-- Valuation Table -->
+  <div class="panel">
+    <h2>Inventory Valuation Breakdown</h2>
+    @if (loading) {
+      <p class="muted">Generating report data…</p>
+    } @else if (filteredItems().length === 0) {
+      <p class="muted">No inventory records matching selected filters.</p>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Category</th>
+              <th>Location</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total Valuation</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of filteredItems(); track item.productId + '-' + item.locationName) {
+              <tr>
+                <td><strong>{{ item.productName }}</strong></td>
+                <td>{{ item.productSku }}</td>
+                <td>{{ item.categoryName }}</td>
+                <td>{{ item.locationName }}</td>
+                <td><strong>{{ item.quantity }}</strong></td>
+                <td>${{ item.unitPrice }}</td>
+                <td><strong>${{ item.totalValue }}</strong></td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td colspan="4"><strong>Grand Total:</strong></td>
+              <td><strong>{{ totalQuantity() }}</strong></td>
+              <td>—</td>
+              <td><strong>${{ totalValuation() }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+  </div>
+</section>

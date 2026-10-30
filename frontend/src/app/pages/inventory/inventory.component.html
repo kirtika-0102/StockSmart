@@ -1,0 +1,349 @@
+<section class="inventory-page">
+  <header class="page-head">
+    <div>
+      <h1>Inventory Management</h1>
+      <p>Monitor stock balances across locations, scan barcodes, and record stock movements.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <!-- Barcode scanner / quick-search widget -->
+  <div class="panel barcode-widget">
+    <div class="barcode-search-row">
+      <div class="barcode-input-wrap">
+        <label for="barcodeInput">Barcode Scanner / Lookup</label>
+        <div class="input-with-button">
+          <input
+            id="barcodeInput"
+            type="text"
+            [(ngModel)]="barcodeQuery"
+            (keyup.enter)="searchBarcode()"
+            placeholder="Scan barcode or enter manually…"
+            autocomplete="off"
+          />
+          <button type="button" (click)="searchBarcode()">Lookup</button>
+          @if (barcodeResult || barcodeError) {
+            <button type="button" class="secondary" (click)="clearBarcode()">Clear</button>
+          }
+        </div>
+      </div>
+    </div>
+
+    @if (barcodeError) {
+      <div class="notice error barcode-msg">{{ barcodeError }}</div>
+    }
+
+    @if (barcodeResult) {
+      <div class="barcode-result-card">
+        <div class="prod-info">
+          <h3>{{ barcodeResult.product.name }}</h3>
+          <span class="meta">SKU: {{ barcodeResult.product.sku }} | Barcode: {{ barcodeResult.product.barcode }}</span>
+          <span class="total-stock">Total In-Stock: <strong>{{ barcodeResult.totalQuantity }}</strong></span>
+        </div>
+        <div class="prod-locations">
+          <table>
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Quantity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (b of barcodeResult.balances; track b.id) {
+                <tr>
+                  <td>{{ b.locationName }}</td>
+                  <td>{{ b.locationType }}</td>
+                  <td><strong>{{ b.quantity }}</strong></td>
+                  <td>
+                    @if (b.quantity === 0) {
+                      <span class="badge out-of-stock">Out of Stock</span>
+                    } @else if (b.lowStock) {
+                      <span class="badge low-stock">Low Stock</span>
+                    } @else {
+                      <span class="badge in-stock">Normal</span>
+                    }
+                  </td>
+                </tr>
+              }
+              @if (barcodeResult.balances.length === 0) {
+                <tr>
+                  <td colspan="4" class="muted">Not stocked at any location yet.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-row">
+    <div class="filter-item">
+      <label for="filterLocation">Location</label>
+      <select id="filterLocation" [(ngModel)]="filterLocationId">
+        <option [ngValue]="null">All Locations</option>
+        @for (loc of locations; track loc.id) {
+          <option [ngValue]="loc.id">{{ loc.name }} ({{ loc.type }})</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-item search-item">
+      <label for="searchTerm">Search product or SKU</label>
+      <input
+        id="searchTerm"
+        type="text"
+        [(ngModel)]="searchTerm"
+        placeholder="Type to filter inventory…"
+        autocomplete="off"
+      />
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Balances Table -->
+    <div class="panel">
+      <h2>Stock Balances</h2>
+      @if (loading) {
+        <p class="muted">Loading inventory balances…</p>
+      } @else if (filteredInventory().length === 0) {
+        <p class="muted">No inventory records matching criteria.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>SKU</th>
+                <th>Location</th>
+                <th>Quantity</th>
+                <th>Reorder At</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredInventory(); track item.id) {
+                <tr>
+                  <td>
+                    <strong>{{ item.productName }}</strong>
+                    @if (item.barcode) {
+                      <span class="small-barcode">({{ item.barcode }})</span>
+                    }
+                  </td>
+                  <td>{{ item.productSku }}</td>
+                  <td>
+                    <span class="loc-tag" [class.wh]="item.locationType === 'WAREHOUSE'">
+                      {{ item.locationName }}
+                    </span>
+                  </td>
+                  <td><strong>{{ item.quantity }}</strong></td>
+                  <td>{{ item.reorderLevel }}</td>
+                  <td>
+                    @if (item.quantity === 0) {
+                      <span class="badge out-of-stock">Out of Stock</span>
+                    } @else if (item.lowStock) {
+                      <span class="badge low-stock">Low Stock</span>
+                    } @else {
+                      <span class="badge in-stock">In Stock</span>
+                    }
+                  </td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="setAction('IN', item)">+ In</button>
+                    <button type="button" class="link" (click)="setAction('OUT', item)">- Out</button>
+                    <button type="button" class="link" (click)="setAction('ADJUST', item)">Adjust</button>
+                    <button type="button" class="link" (click)="setAction('REORDER', item)">Reorder</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Movement / Action Panel -->
+    <div class="panel action-panel">
+      <div class="action-tabs">
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="actionType === 'IN'"
+          (click)="setAction('IN')"
+        >
+          Stock In
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="actionType === 'OUT'"
+          (click)="setAction('OUT')"
+        >
+          Stock Out
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="actionType === 'ADJUST'"
+          (click)="setAction('ADJUST')"
+        >
+          Adjust
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="actionType === 'REORDER'"
+          (click)="setAction('REORDER')"
+        >
+          Reorder Level
+        </button>
+      </div>
+
+      @if (actionType !== 'REORDER') {
+        <form class="form" [formGroup]="actionForm" (ngSubmit)="submitAction()">
+          <h3>
+            @if (actionType === 'IN') { Receive Stock (+) }
+            @else if (actionType === 'OUT') { Issue Stock (-) }
+            @else { Set Physical Balance (=) }
+          </h3>
+
+          <label for="actLoc">Location</label>
+          <select id="actLoc" formControlName="locationId">
+            <option [ngValue]="null">Select location…</option>
+            @for (loc of locations; track loc.id) {
+              <option [ngValue]="loc.id">{{ loc.name }}</option>
+            }
+          </select>
+          @if (actionForm.controls.locationId.touched && actionForm.controls.locationId.invalid) {
+            <span class="field-error">Location is required.</span>
+          }
+
+          <label for="actProd">Product</label>
+          <select id="actProd" formControlName="productId">
+            <option [ngValue]="null">Select product…</option>
+            @for (p of products; track p.id) {
+              <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+            }
+          </select>
+          @if (actionForm.controls.productId.touched && actionForm.controls.productId.invalid) {
+            <span class="field-error">Product is required.</span>
+          }
+
+          <label for="actQty">
+            @if (actionType === 'ADJUST') { New Quantity }
+            @else { Quantity }
+          </label>
+          <input
+            id="actQty"
+            type="number"
+            formControlName="quantity"
+            [min]="actionType === 'ADJUST' ? 0 : 1"
+          />
+          @if (actionForm.controls.quantity.touched && actionForm.controls.quantity.invalid) {
+            <span class="field-error">
+              {{ actionType === 'ADJUST' ? 'Quantity cannot be negative.' : 'Quantity must be 1 or more.' }}
+            </span>
+          }
+
+          @if (actionType !== 'ADJUST') {
+            <label for="actRefType">Reference Type</label>
+            <input id="actRefType" type="text" formControlName="referenceType" placeholder="e.g. PURCHASE_ORDER, ORDER, MANUAL" />
+
+            <label for="actRefId">Reference ID / No.</label>
+            <input id="actRefId" type="text" formControlName="referenceId" placeholder="e.g. PO-001, ORD-123" />
+          }
+
+          <label for="actReason">Reason / Note</label>
+          <input id="actReason" type="text" formControlName="reason" placeholder="Optional movement note" />
+
+          <button type="submit" [disabled]="submitting">
+            {{ submitting ? 'Processing…' : actionType === 'IN' ? 'Confirm Stock In' : actionType === 'OUT' ? 'Confirm Stock Out' : 'Save Adjustment' }}
+          </button>
+        </form>
+      } @else {
+        <form class="form" [formGroup]="reorderForm" (ngSubmit)="submitAction()">
+          <h3>Set Reorder Threshold</h3>
+
+          <label for="reLoc">Location</label>
+          <select id="reLoc" formControlName="locationId">
+            <option [ngValue]="null">Select location…</option>
+            @for (loc of locations; track loc.id) {
+              <option [ngValue]="loc.id">{{ loc.name }}</option>
+            }
+          </select>
+
+          <label for="reProd">Product</label>
+          <select id="reProd" formControlName="productId">
+            <option [ngValue]="null">Select product…</option>
+            @for (p of products; track p.id) {
+              <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+            }
+          </select>
+
+          <label for="reLevel">Low-Stock Alert Level</label>
+          <input id="reLevel" type="number" formControlName="reorderLevel" min="0" />
+
+          <button type="submit" [disabled]="submitting">
+            {{ submitting ? 'Saving…' : 'Update Threshold' }}
+          </button>
+        </form>
+      }
+    </div>
+  </div>
+
+  <!-- Recent Movements Log -->
+  <div class="panel transactions-panel">
+    <h2>Recent Movements Log</h2>
+    @if (transactions.length === 0) {
+      <p class="muted">No movement transactions recorded yet.</p>
+    } @else {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Product</th>
+              <th>Location</th>
+              <th>Type</th>
+              <th>Change</th>
+              <th>Reference</th>
+              <th>User</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tx of transactions; track tx.id) {
+              <tr>
+                <td>{{ tx.createdAt }}</td>
+                <td>{{ tx.productName }} ({{ tx.productSku }})</td>
+                <td>{{ tx.locationName }}</td>
+                <td>
+                  <span class="tx-badge" [class.in]="tx.quantityChange > 0" [class.out]="tx.quantityChange < 0">
+                    {{ tx.transactionType }}
+                  </span>
+                </td>
+                <td>
+                  <strong>
+                    {{ tx.quantityChange > 0 ? '+' : '' }}{{ tx.quantityChange }}
+                  </strong>
+                </td>
+                <td>
+                  {{ tx.referenceType ? tx.referenceType + (tx.referenceId ? ' #' + tx.referenceId : '') : '—' }}
+                </td>
+                <td>{{ tx.username || 'System' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>

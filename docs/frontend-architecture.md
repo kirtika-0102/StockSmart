@@ -13,13 +13,11 @@ Angular **17+** SPA for the B.Tech project. Standalone components, simple struct
 ```mermaid
 flowchart TD
     App[AppComponent] --> Login[/login]
-    App --> Main[MainLayout]
-    Main --> Dashboard
-    Main --> Products
-    Main --> Inventory
-    Main --> Orders
-    Main --> PO[Purchase Orders]
-    Main --> Users[/users admin]
+    App --> Main[ShellComponent]
+    Main --> Home[/]
+    Main --> Categories[/categories]
+    Main --> Users[/users ADMIN]
+    Main --> Future[Products inventory orders later]
 ```
 
 ---
@@ -31,7 +29,7 @@ flowchart TD
 | `/login` | Login | public |
 | `/dashboard` | KPI dashboard | all authenticated |
 | `/products` | Product CRUD | manager, admin |
-| `/categories` | Categories | manager, admin |
+| `/categories` | Categories (**implemented**) | ADMIN, INVENTORY_MANAGER |
 | `/suppliers` | Suppliers | manager, admin |
 | `/locations` | Locations | manager, admin |
 | `/inventory` | Stock levels & actions | manager, staff |
@@ -49,7 +47,9 @@ flowchart TD
 - **AuthService** — login, logout, `currentUser$`, token storage
 - **AuthInterceptor** — attach JWT
 - **authGuard** — redirect to login
-- **roleGuard** — read `data.roles` on route config
+- **roleGuard** — read `data.roles` on route config (implemented; `/users` requires `ADMIN`)
+- **Users page** — list, create, edit, deactivate via `UserService` (`/api/users`)
+- **Categories page** — list, create, edit, delete via `CategoryService` (`/api/categories`); `ADMIN` and `INVENTORY_MANAGER`
 
 ---
 

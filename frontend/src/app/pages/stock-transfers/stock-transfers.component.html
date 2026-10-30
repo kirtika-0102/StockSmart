@@ -1,0 +1,165 @@
+<section class="transfers-page">
+  <header class="page-head">
+    <div>
+      <h1>Stock Transfers</h1>
+      <p>Move inventory items between warehouses and retail store locations.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <!-- List -->
+    <div class="panel">
+      <h2>Transfers List</h2>
+      @if (loading) {
+        <p class="muted">Loading stock transfers…</p>
+      } @else if (transfers.length === 0) {
+        <p class="muted">No transfers yet. Create an inter-location transfer.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>TR #</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tr of transfers; track tr.id) {
+                <tr [class.selected]="selectedTransfer?.id === tr.id">
+                  <td><strong>TR-{{ tr.id }}</strong></td>
+                  <td>{{ tr.sourceLocationName }}</td>
+                  <td>{{ tr.destLocationName }}</td>
+                  <td>{{ tr.items.length }} line(s)</td>
+                  <td>
+                    <span class="badge" [class.pending]="tr.status === 'PENDING'" [class.completed]="tr.status === 'COMPLETED'" [class.cancelled]="tr.status === 'CANCELLED'">
+                      {{ tr.status }}
+                    </span>
+                  </td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="viewDetails(tr)">Details</button>
+                    @if (tr.status === 'PENDING') {
+                      <button type="button" class="link success" (click)="completeTransfer(tr)">Complete</button>
+                      <button type="button" class="link danger" (click)="cancelTransfer(tr)">Cancel</button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Create Form -->
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>New Stock Transfer</h2>
+
+      <label for="srcLoc">Source Location</label>
+      <select id="srcLoc" formControlName="sourceLocationId">
+        <option [ngValue]="null">Select source location…</option>
+        @for (l of locations; track l.id) {
+          <option [ngValue]="l.id">{{ l.name }} ({{ l.type }})</option>
+        }
+      </select>
+      @if (form.controls.sourceLocationId.touched && form.controls.sourceLocationId.invalid) {
+        <span class="field-error">Source location is required.</span>
+      }
+
+      <label for="destLoc">Destination Location</label>
+      <select id="destLoc" formControlName="destLocationId">
+        <option [ngValue]="null">Select destination location…</option>
+        @for (l of locations; track l.id) {
+          <option [ngValue]="l.id">{{ l.name }} ({{ l.type }})</option>
+        }
+      </select>
+      @if (form.controls.destLocationId.touched && form.controls.destLocationId.invalid) {
+        <span class="field-error">Destination location is required.</span>
+      }
+
+      <div class="line-items-header">
+        <h3>Transfer Items</h3>
+        <button type="button" class="secondary small" (click)="addItem()">+ Add Item</button>
+      </div>
+
+      <div formArrayName="items" class="line-items">
+        @for (itemGroup of items.controls; track $index) {
+          <div [formGroupName]="$index" class="item-row">
+            <div class="field-prod">
+              <label>Product</label>
+              <select formControlName="productId">
+                <option [ngValue]="null">Select product…</option>
+                @for (p of products; track p.id) {
+                  <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+                }
+              </select>
+            </div>
+            <div class="field-qty">
+              <label>Quantity</label>
+              <input type="number" formControlName="quantity" min="1" />
+            </div>
+            @if (items.length > 1) {
+              <button type="button" class="btn-remove" (click)="removeItem($index)" title="Remove item">✕</button>
+            }
+          </div>
+        }
+      </div>
+
+      <button type="submit" [disabled]="submitting">
+        {{ submitting ? 'Initiating…' : 'Initiate Stock Transfer' }}
+      </button>
+    </form>
+  </div>
+
+  <!-- Details Panel -->
+  @if (selectedTransfer) {
+    <div class="panel details-panel">
+      <div class="details-head">
+        <div>
+          <h2>TR-{{ selectedTransfer.id }} Details</h2>
+          <span class="muted">
+            From: <strong>{{ selectedTransfer.sourceLocationName }}</strong> → To: <strong>{{ selectedTransfer.destLocationName }}</strong> | Status: <strong>{{ selectedTransfer.status }}</strong>
+          </span>
+        </div>
+        <div class="details-actions">
+          @if (selectedTransfer.status === 'PENDING') {
+            <button type="button" class="primary" (click)="completeTransfer(selectedTransfer)">Complete Transfer</button>
+            <button type="button" class="danger" (click)="cancelTransfer(selectedTransfer)">Cancel Transfer</button>
+          }
+          <button type="button" class="secondary" (click)="closeDetails()">Close</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Quantity to Transfer</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of selectedTransfer.items; track line.id) {
+              <tr>
+                <td>{{ line.productName }}</td>
+                <td>{{ line.productSku }}</td>
+                <td><strong>{{ line.quantity }}</strong></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>

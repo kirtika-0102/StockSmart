@@ -1,727 +1,243 @@
 # StockSmart REST API Documentation
 
-> **College project scope:** This document is a **planning reference**. Implement a subset with base path `/api` or `/api/v1`. Use **roles** (`ADMIN`, `INVENTORY_MANAGER`, `STAFF`) instead of granular permission strings. Inventory endpoints update **`INVENTORY.quantity`** via `InventoryService` (optional transaction history). RFID endpoints below are **future** — not required for MVP.
+> **College Project Monolith Scope:** Implemented endpoints use base path **`/api`** (configured via Angular proxy and Spring Boot). Responses are **plain DTOs and arrays** (clean JSON representation without unnecessary envelope wrappers). Security is powered by stateless **JWT Bearer authentication** with three roles: `ADMIN`, `INVENTORY_MANAGER`, and `STAFF`.
 
-**Base Path:** `/api/v1` (or `/api` — pick one at implementation)
+---
 
-## Common Response Envelopes
+## Architecture Overview
 
-### Success Response
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Operation successful",
-  "timestamp": "2026-09-30T10:00:00Z"
-}
+```mermaid
+flowchart TD
+    subgraph Clients [Frontend / Clients]
+        Web[Angular 19 SPA]
+        Mobile[Barcode Scanner Client]
+    end
+
+    subgraph Security [Security & Filters]
+        JwtAuth[JwtAuthenticationFilter Bearer JWT]
+    end
+
+    subgraph Endpoints [REST Controllers /api]
+        AuthCtrl["/api/auth (Login, Register, Me)"]
+        UserCtrl["/api/users (ADMIN CRUD)"]
+        CatCtrl["/api/categories"]
+        ProdCtrl["/api/products & /barcode/{code}"]
+        LocCtrl["/api/locations"]
+        SuppCtrl["/api/suppliers & /products"]
+        InvCtrl["/api/inventory (Stock In/Out, Adjust)"]
+        POCtrl["/api/purchase-orders"]
+        OrderCtrl["/api/orders (Sales & Fulfillment)"]
+        TransferCtrl["/api/transfers"]
+        AlertCtrl["/api/alerts"]
+        DashCtrl["/api/dashboard/summary"]
+        ReportCtrl["/api/reports/valuation"]
+    end
+
+    Web --> JwtAuth
+    Mobile --> JwtAuth
+    JwtAuth --> Endpoints
 ```
 
-### Paginated Success Response
-```json
-{
-  "success": true,
-  "data": {
-    "content": [...],
-    "page": 0,
-    "size": 20,
-    "totalElements": 150,
-    "totalPages": 8
-  },
-  "message": "Data retrieved successfully",
-  "timestamp": "2026-09-30T10:00:00Z"
-}
-```
+---
 
-### Error Response (simple JSON)
+## Common Error Response
+
+Validation and business exceptions return a structured JSON response handled globally by `GlobalExceptionHandler`:
+
 ```json
 {
   "status": 400,
-  "message": "Validation failed",
-  "errors": [
-    { "field": "sku", "message": "SKU must be unique" }
-  ],
-  "timestamp": "2026-09-30T10:00:00Z"
+  "message": "Insufficient stock available for product Wireless Mouse at Central Warehouse",
+  "errors": [],
+  "timestamp": "2026-10-30T10:00:00Z"
 }
 ```
 
 ---
 
-## 1. Authentication
+## 1. Authentication (`/api/auth`)
 
-### `POST /auth/login`
-- **Purpose**: Authenticate user and issue JWT.
-- **Auth Required**: No
-- **Roles**: None
+Public and self-service authentication endpoints.
+
+### `POST /api/auth/login`
+- **Roles**: Public
 - **Request Body**:
   ```json
+  { "username": "admin", "password": "Admin@123" }
+  ```
+- **Response (200 OK)**:
+  ```json
   {
+    "accessToken": "eyJhbGciOi...",
+    "tokenType": "Bearer",
+    "expiresInMs": 3600000,
     "username": "admin",
-    "password": "password123"
+    "fullName": "System Admin",
+    "roles": ["ADMIN"]
   }
   ```
-- **Success (200)**: Returns `accessToken` and `refreshToken`.
-- **Errors**: 400, 401.
 
-### `POST /auth/register`
-- **Purpose**: Register a new user (admin approval may be required).
-- **Auth Required**: No
-- **Roles**: None
-- **Request Body**: User details (username, email, password, firstName, lastName).
-- **Success (201)**: Returns registered user (without password).
-- **Errors**: 400, 409 (Conflict).
+### `POST /api/auth/register`
+- **Roles**: Public (registers as `STAFF`)
+- **Request Body**: `username`, `email`, `password`, `firstName`, `lastName`
+- **Response (201 Created)**: Returns `AuthResponse` with JWT token.
 
-### `POST /auth/refresh`
-- **Purpose**: Get a new access token using a refresh token.
-- **Auth Required**: No
-- **Request Body**: `{"refreshToken": "..."}`
-- **Success (200)**: Returns new `accessToken`.
-- **Errors**: 400, 401.
-
-### `POST /auth/logout`
-- **Purpose**: Invalidate current tokens.
-- **Auth Required**: Yes
-- **Success (200)**: Empty data.
-- **Errors**: 401.
+### `GET /api/auth/me`
+- **Roles**: Any authenticated user
+- **Response (200 OK)**: Current user's profile and assigned roles.
 
 ---
 
-## 2. Users
+## 2. User Administration (`/api/users`)
 
-### `GET /users`
-- **Purpose**: List users with pagination and filtering.
-- **Auth Required**: Yes
-- **Roles**: `USER_READ`, `ADMIN`
-- **Query Params**: `page`, `size`, `sort`, `search`
-- **Success (200)**: Paginated users.
-- **Errors**: 401, 403.
+Manage system users and access roles.
 
-### `GET /users/{id}`
-- **Purpose**: Get user details.
-- **Auth Required**: Yes
-- **Roles**: `USER_READ`, `ADMIN`
-- **Path Params**: `id` (Long)
-- **Success (200)**: User details.
-- **Errors**: 401, 403, 404.
-
-### `POST /users`
-- **Purpose**: Create a user (Admin).
-- **Auth Required**: Yes
-- **Roles**: `USER_WRITE`, `ADMIN`
-- **Request Body**: User data.
-- **Success (201)**: Created user.
-- **Errors**: 400, 401, 403, 409.
-
-### `PUT /users/{id}`
-- **Purpose**: Update user details.
-- **Auth Required**: Yes
-- **Roles**: `USER_WRITE`, `ADMIN`
-- **Path Params**: `id` (Long)
-- **Request Body**: User update data.
-- **Success (200)**: Updated user.
-- **Errors**: 400, 401, 403, 404.
-
-### `DELETE /users/{id}`
-- **Purpose**: Deactivate a user.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
-- **Errors**: 401, 403, 404.
-
-### `POST /users/{id}/roles`
-- **Purpose**: Assign roles to a user.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Request Body**: `{"roleIds": [1, 2]}`
-- **Success (200)**: Updated user roles.
-- **Errors**: 400, 401, 403, 404.
-
-### `POST /users/{id}/reset-password`
-- **Purpose**: Reset user password.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Request Body**: `{"newPassword": "..."}`
-- **Success (200)**: Success message.
-- **Errors**: 400, 401, 403, 404.
+- **Roles**: `ADMIN` only
+- `GET /api/users` — List all users
+- `GET /api/users/{id}` — Retrieve user by ID
+- `POST /api/users` — Create user (`username`, `email`, `password`, `firstName`, `lastName`, `role`)
+- `PUT /api/users/{id}` — Update user details and role
+- `DELETE /api/users/{id}` — Soft deactivation (`active = false`)
 
 ---
 
-## 3. Roles
+## 3. Categories (`/api/categories`)
 
-### `GET /roles`
-- **Purpose**: List roles.
-- **Auth Required**: Yes
-- **Roles**: `ROLE_READ`, `ADMIN`
-- **Success (200)**: List of roles.
-- **Errors**: 401, 403.
+Product categorization tree.
 
-### `GET /roles/{id}`
-- **Purpose**: Get role details.
-- **Auth Required**: Yes
-- **Roles**: `ROLE_READ`, `ADMIN`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Role details.
-- **Errors**: 401, 403, 404.
-
-### `POST /roles`
-- **Purpose**: Create a role.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Request Body**: `{"name": "MANAGER", "description": "..."}`
-- **Success (201)**: Created role.
-- **Errors**: 400, 401, 403, 409.
-
-### `PUT /roles/{id}`
-- **Purpose**: Update a role.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Request Body**: Updates to role.
-- **Success (200)**: Updated role.
-- **Errors**: 400, 401, 403, 404.
-
-### `DELETE /roles/{id}`
-- **Purpose**: Delete a role.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
-- **Errors**: 401, 403, 404, 409 (if assigned to users).
-
-### `POST /roles/{id}/permissions`
-- **Purpose**: Assign permissions to a role.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Path Params**: `id` (Long)
-- **Request Body**: `{"permissionIds": [1, 2, 3]}`
-- **Success (200)**: Updated role permissions.
-- **Errors**: 400, 401, 403, 404.
+- **Read**: Authenticated (`ADMIN`, `INVENTORY_MANAGER`, `STAFF`)
+- **Write**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/categories` — List categories ordered by name
+- `GET /api/categories/{id}` — Category details
+- `POST /api/categories` — Create category (`name`, optional `parentId`)
+- `PUT /api/categories/{id}` — Update category name/parent
+- `DELETE /api/categories/{id}` — Delete category (fails if child categories exist)
 
 ---
 
-## 4. Products
+## 4. Products (`/api/products`)
 
-### `GET /products`
-- **Purpose**: List products with search, filter, pagination.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Query Params**: `page`, `size`, `sort`, `search`, `categoryId`, `brandId`
-- **Success (200)**: Paginated products.
-- **Errors**: 401, 403.
+Catalog items with SKUs and Barcodes.
 
-### `GET /products/{id}`
-- **Purpose**: Get product details.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Product details.
-- **Errors**: 401, 403, 404.
-
-### `GET /products/barcode/{barcode}`
-- **Purpose**: Lookup product by barcode.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Path Params**: `barcode` (String)
-- **Success (200)**: Product details.
-- **Errors**: 401, 403, 404.
-
-### `POST /products`
-- **Purpose**: Create a product.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Request Body**: Product details (name, sku, description, categoryId, etc.)
-- **Success (201)**: Created product.
-- **Errors**: 400, 401, 403, 409 (Duplicate SKU).
-
-### `PUT /products/{id}`
-- **Purpose**: Update a product.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Request Body**: Product updates.
-- **Success (200)**: Updated product.
-- **Errors**: 400, 401, 403, 404, 409.
-
-### `DELETE /products/{id}`
-- **Purpose**: Delete (soft-delete/deactivate) a product.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
-- **Errors**: 401, 403, 404.
+- **Read**: Authenticated
+- **Write**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/products` — List all products
+- `GET /api/products/{id}` — Product details
+- `GET /api/products/barcode/{barcode}` — Lookup single product by barcode string
+- `POST /api/products` — Create product (`name`, `sku`, `barcode`, `description`, `unitPrice`, `categoryId`)
+- `PUT /api/products/{id}` — Update product details
+- `DELETE /api/products/{id}` — Delete product
 
 ---
 
-## 5. Categories
+## 5. Locations (`/api/locations`)
 
-### `GET /categories`
-- **Purpose**: List categories (including hierarchy).
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Success (200)**: List of categories.
-- **Errors**: 401, 403.
+Physical warehouses and retail store branches.
 
-### `GET /categories/{id}`
-- **Purpose**: Get category details.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Category details.
-- **Errors**: 401, 403, 404.
-
-### `POST /categories`
-- **Purpose**: Create a category.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Request Body**: `{"name": "...", "parentId": 1}`
-- **Success (201)**: Created category.
-- **Errors**: 400, 401, 403.
-
-### `PUT /categories/{id}`
-- **Purpose**: Update a category.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Request Body**: Category updates.
-- **Success (200)**: Updated category.
-- **Errors**: 400, 401, 403, 404.
-
-### `DELETE /categories/{id}`
-- **Purpose**: Delete a category.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
-- **Errors**: 401, 403, 404, 409 (If has products).
+- **Read**: Authenticated
+- **Write**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/locations` — List all locations
+- `GET /api/locations/{id}` — Location details
+- `POST /api/locations` — Create location (`name`, `type`: `STORE` | `WAREHOUSE`, `address`)
+- `PUT /api/locations/{id}` — Update location
+- `DELETE /api/locations/{id}` — Delete location
 
 ---
 
-## 6. Brands
+## 6. Suppliers & Catalog Linking (`/api/suppliers`)
 
-### `GET /brands`
-- **Purpose**: List brands.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Success (200)**: List of brands.
+Vendor directories and product procurement costs.
 
-### `GET /brands/{id}`
-- **Purpose**: Get brand details.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Brand details.
-
-### `POST /brands`
-- **Purpose**: Create a brand.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Request Body**: `{"name": "...", "description": "..."}`
-- **Success (201)**: Created brand.
-
-### `PUT /brands/{id}`
-- **Purpose**: Update a brand.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Request Body**: Updates.
-- **Success (200)**: Updated brand.
-
-### `DELETE /brands/{id}`
-- **Purpose**: Delete a brand.
-- **Auth Required**: Yes
-- **Roles**: `PRODUCT_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
+- **Read**: Authenticated
+- **Write**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/suppliers` — List suppliers
+- `GET /api/suppliers/{id}` — Supplier details
+- `POST /api/suppliers` — Create supplier (`name`, `contactName`, `email`, `phone`, `address`)
+- `PUT /api/suppliers/{id}` — Update supplier
+- `DELETE /api/suppliers/{id}` — Delete supplier
+- `GET /api/suppliers/{id}/products` — Get linked products and unit costs
+- `POST /api/suppliers/{id}/products` — Link product to supplier (`productId`, `unitCost`)
+- `DELETE /api/suppliers/{id}/products/{productId}` — Remove supplier-product link
+- `GET /api/products/{productId}/suppliers` — List suppliers supplying a specific product
 
 ---
 
-## 7. Suppliers
+## 7. Inventory Core (`/api/inventory`)
 
-### `GET /suppliers`
-- **Purpose**: List suppliers.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_READ`
-- **Success (200)**: List of suppliers (paginated).
+Stock levels, movements, barcode breakdown, and audit log.
 
-### `GET /suppliers/{id}`
-- **Purpose**: Get supplier details.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Supplier details.
-
-### `POST /suppliers`
-- **Purpose**: Create a supplier.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_WRITE`
-- **Request Body**: Supplier info.
-- **Success (201)**: Created supplier.
-
-### `PUT /suppliers/{id}`
-- **Purpose**: Update a supplier.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Updated supplier.
-
-### `DELETE /suppliers/{id}`
-- **Purpose**: Delete a supplier.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
-
-### `GET /suppliers/{id}/products`
-- **Purpose**: Get products provided by supplier.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: List of products.
-
-### `POST /suppliers/{id}/products`
-- **Purpose**: Assign products to a supplier.
-- **Auth Required**: Yes
-- **Roles**: `SUPPLIER_WRITE`
-- **Path Params**: `id` (Long)
-- **Request Body**: `{"productIds": [1, 2]}`
-- **Success (200)**: Updated list.
+- `GET /api/inventory?locationId={id}&query={search}` — List inventory items with stock status
+- `GET /api/inventory/barcode/{barcode}` — Barcode lookup with breakdown across all locations
+- `POST /api/inventory/stock-in` — Inward stock movement (`productId`, `locationId`, `quantity`, `referenceId`, `reason`)
+- `POST /api/inventory/stock-out` — Outward stock movement with non-negative validation (`productId`, `locationId`, `quantity`, `referenceId`, `reason`)
+- `POST /api/inventory/adjust` — Physical inventory cycle count adjustment (`productId`, `locationId`, `physicalQuantity`, `reason`)
+- `PUT /api/inventory/reorder-level` — Set low stock alert threshold (`productId`, `locationId`, `reorderLevel`)
+- `GET /api/inventory/transactions?productId={id}&locationId={id}&limit=50` — Movement audit trail
 
 ---
 
-## 8. Locations
+## 8. Purchase Orders (`/api/purchase-orders`)
 
-### `GET /locations`
-- **Purpose**: List locations (stores, warehouses).
-- **Auth Required**: Yes
-- **Roles**: `LOCATION_READ`
-- **Success (200)**: List of locations.
+Vendor procurement lifecycle.
 
-### `GET /locations/{id}`
-- **Purpose**: Get location details.
-- **Auth Required**: Yes
-- **Roles**: `LOCATION_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Location details.
-
-### `POST /locations`
-- **Purpose**: Create a location.
-- **Auth Required**: Yes
-- **Roles**: `LOCATION_WRITE`
-- **Request Body**: Location info (type, address).
-- **Success (201)**: Created location.
-
-### `PUT /locations/{id}`
-- **Purpose**: Update a location.
-- **Auth Required**: Yes
-- **Roles**: `LOCATION_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Updated location.
-
-### `DELETE /locations/{id}`
-- **Purpose**: Delete a location.
-- **Auth Required**: Yes
-- **Roles**: `LOCATION_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (204)**: No Content.
+- **Roles**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/purchase-orders` — List POs
+- `GET /api/purchase-orders/{id}` — PO details with line items
+- `POST /api/purchase-orders` — Create PO (`supplierId`, `locationId`, `items`: `[ { productId, quantity, unitCost } ]`)
+- `POST /api/purchase-orders/{id}/receive` — Receive PO items into inventory (increments stock at target location)
+- `POST /api/purchase-orders/{id}/cancel` — Cancel pending PO
 
 ---
 
-## 9. Inventory
+## 9. Sales Orders & Fulfillment (`/api/orders`)
 
-### `GET /inventory/locations/{locationId}/products/{productId}`
-- **Purpose**: Get current stock balance for a product at a location.
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_READ`
-- **Path Params**: `locationId`, `productId`
-- **Success (200)**: Inventory balance.
+Customer retail orders and inventory deduction.
 
-### `GET /inventory/locations/{locationId}`
-- **Purpose**: List inventory balances for a location.
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_READ`
-- **Path Params**: `locationId`
-- **Query Params**: `page`, `size`
-- **Success (200)**: Paginated balances.
-
-### `POST /inventory/receive`
-- **Purpose**: Stock in (manual or linked to PO receive workflow).
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_MANAGER`, `ADMIN`
-- **Request Body**: `{"locationId": 1, "productId": 100, "quantity": 50, "reason": "PO Receive", "referenceId": "PO-123"}`
-- **Success (201)**: Quantity increased; optional `INVENTORY_TRANSACTION` row.
-- **Notes**: Scoped to `locationId`. Updates `INVENTORY` row (create if missing).
-
-### `POST /inventory/adjust`
-- **Purpose**: Adjust stock (cycle count correction, damage).
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_MANAGER`, `ADMIN`
-- **Request Body**: `{"locationId": 1, "productId": 100, "quantity": -5, "reason": "Damage"}`
-- **Success (201)**: Quantity updated; rejects if result &lt; 0.
-
-### `GET /inventory/transactions`
-- **Purpose**: Query optional movement history (`INVENTORY_TRANSACTION`).
-- **Auth Required**: Yes
-- **Roles**: `INVENTORY_MANAGER`, `ADMIN`, `STAFF` (read-only)
-- **Query Params**: `locationId`, `productId`, `fromDate`, `toDate`, `page`, `size`
-- **Success (200)**: Paginated transaction rows.
+- **Roles**: All authenticated roles (`ADMIN`, `INVENTORY_MANAGER`, `STAFF`)
+- `GET /api/orders` — List customer sales orders
+- `GET /api/orders/{id}` — Order details with line items
+- `POST /api/orders` — Create sales order (`customerName`, `locationId`, `items`: `[ { productId, quantity } ]`)
+- `POST /api/orders/{id}/confirm` — Fulfill and complete order (validates sufficient stock and decrements inventory)
+- `POST /api/orders/{id}/cancel` — Cancel pending order
 
 ---
 
-## 10. Stock Transfers
+## 10. Inter-Location Transfers (`/api/transfers`)
 
-### `GET /transfers`
-- **Purpose**: List transfers.
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_READ`
-- **Query Params**: `status`, `fromLocationId`, `toLocationId`, `page`, `size`
-- **Success (200)**: Paginated transfers.
+Stock balancing between warehouses and stores.
 
-### `GET /transfers/{id}`
-- **Purpose**: Get transfer details.
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Transfer details.
-
-### `POST /transfers`
-- **Purpose**: Create a transfer request.
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_WRITE`
-- **Request Body**: Transfer details (from/to, items).
-- **Success (201)**: Created transfer.
-
-### `POST /transfers/{id}/approve`
-- **Purpose**: Approve a transfer.
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_APPROVE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Transfer status updated to APPROVED.
-
-### `POST /transfers/{id}/ship`
-- **Purpose**: Ship a transfer (deducts stock from source location).
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Stock deducted, status SHIPPED.
-
-### `POST /transfers/{id}/receive`
-- **Purpose**: Receive a transfer (adds stock to destination location).
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Stock added, status COMPLETED.
-
-### `POST /transfers/{id}/cancel`
-- **Purpose**: Cancel a transfer.
-- **Auth Required**: Yes
-- **Roles**: `TRANSFER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Status CANCELLED (if eligible).
+- **Roles**: `ADMIN`, `INVENTORY_MANAGER`
+- `GET /api/transfers` — List transfer requests
+- `GET /api/transfers/{id}` — Transfer details with item quantities
+- `POST /api/transfers` — Create transfer (`sourceLocationId`, `destinationLocationId`, `items`: `[ { productId, quantity } ]`)
+- `POST /api/transfers/{id}/complete` — Complete transfer (atomically decrements source and increments destination)
+- `POST /api/transfers/{id}/cancel` — Cancel pending transfer
 
 ---
 
-## 11. Purchase Orders
+## 11. Alerts & Reorder Level Monitoring (`/api/alerts`)
 
-### `GET /purchase-orders`
-- **Purpose**: List POs.
-- **Auth Required**: Yes
-- **Roles**: `PO_READ`
-- **Query Params**: `status`, `supplierId`, `locationId`, `page`, `size`
-- **Success (200)**: Paginated POs.
+Real-time stock anomaly detection.
 
-### `GET /purchase-orders/{id}`
-- **Purpose**: Get PO details.
-- **Auth Required**: Yes
-- **Roles**: `PO_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: PO details.
-
-### `POST /purchase-orders`
-- **Purpose**: Create a PO.
-- **Auth Required**: Yes
-- **Roles**: `PO_WRITE`
-- **Request Body**: PO details (supplier, location, items).
-- **Success (201)**: Created PO.
-
-### `POST /purchase-orders/{id}/approve`
-- **Purpose**: Approve a PO.
-- **Auth Required**: Yes
-- **Roles**: `PO_APPROVE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: PO approved.
-
-### `POST /purchase-orders/{id}/send`
-- **Purpose**: Mark PO as sent to supplier.
-- **Auth Required**: Yes
-- **Roles**: `PO_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: PO status SENT.
-
-### `POST /purchase-orders/{id}/receive`
-- **Purpose**: Receive items against a PO.
-- **Auth Required**: Yes
-- **Roles**: `PO_RECEIVE`
-- **Path Params**: `id` (Long)
-- **Request Body**: Received quantities for items.
-- **Success (200)**: Inventory updated, PO status PARTIAL or COMPLETED.
-
-### `POST /purchase-orders/{id}/cancel`
-- **Purpose**: Cancel a PO.
-- **Auth Required**: Yes
-- **Roles**: `PO_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Status CANCELLED.
+- **Roles**: `ADMIN`, `INVENTORY_MANAGER`, `STAFF`
+- `GET /api/alerts?status={ACTIVE|ACKNOWLEDGED|RESOLVED}` — List alerts
+- `POST /api/alerts/{id}/acknowledge` — Mark alert acknowledged
+- `POST /api/alerts/{id}/resolve` — Mark alert resolved
+- `POST /api/alerts/check` — Execute reorder scan across all product-location balances
 
 ---
 
-## 12. Orders (Sales)
+## 12. Dashboard & Valuation Reporting
 
-### `GET /orders`
-- **Purpose**: List sales orders.
-- **Auth Required**: Yes
-- **Roles**: `ORDER_READ`
-- **Query Params**: `status`, `locationId`, `page`, `size`
-- **Success (200)**: Paginated orders.
+Executive summary and analytics.
 
-### `GET /orders/{id}`
-- **Purpose**: Get order details.
-- **Auth Required**: Yes
-- **Roles**: `ORDER_READ`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Order details.
-
-### `POST /orders`
-- **Purpose**: Create a sales order.
-- **Auth Required**: Yes
-- **Roles**: `ORDER_WRITE`
-- **Request Body**: Order details (items, location, customer).
-- **Success (201)**: Created order.
-
-### `POST /orders/{id}/process`
-- **Purpose**: Mark order as processing (allocate stock).
-- **Auth Required**: Yes
-- **Roles**: `ORDER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Order status PROCESSING.
-
-### `POST /orders/{id}/complete`
-- **Purpose**: Complete order (deduct stock).
-- **Auth Required**: Yes
-- **Roles**: `ORDER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Inventory updated, status COMPLETED.
-
-### `POST /orders/{id}/cancel`
-- **Purpose**: Cancel order (release allocated stock).
-- **Auth Required**: Yes
-- **Roles**: `ORDER_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Status CANCELLED.
-
----
-
-## 13. Barcode
-
-### `GET /products/by-barcode/{barcode}` (recommended)
-- **Purpose**: Lookup product by barcode field.
-- **Auth Required**: Yes
-- **Roles**: Any authenticated role
-- **Path Params**: `barcode` (String)
-- **Success (200)**: Product response.
-- **Notes**: Plain string match; no GS1 parsing required.
-
-Barcode is set via **Product** create/update (`barcode` field), not a separate identifiers table.
-
----
-
-## 14. RFID (future — not MVP)
-
-Planned for post-project: EPC lookup, tag registration, bulk intake. See [barcode-rfid.md](./barcode-rfid.md). **Do not implement** for initial submission unless explicitly extended.
-
----
-
-## 15. Alerts
-
-### `GET /alerts`
-- **Purpose**: List system alerts (e.g., low stock).
-- **Auth Required**: Yes
-- **Roles**: `ALERT_READ`
-- **Query Params**: `status`, `page`, `size`
-- **Success (200)**: Paginated alerts.
-
-### `POST /alerts/{id}/acknowledge`
-- **Purpose**: Mark an alert as acknowledged.
-- **Auth Required**: Yes
-- **Roles**: `ALERT_WRITE`
-- **Path Params**: `id` (Long)
-- **Success (200)**: Alert updated.
-
-### `GET /alerts/config`
-- **Purpose**: Get alert threshold configurations.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Success (200)**: Alert configs.
-
-### `PUT /alerts/config`
-- **Purpose**: Update alert thresholds (e.g., low stock levels).
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Request Body**: Config updates.
-- **Success (200)**: Updated configs.
-
----
-
-## 16. Dashboard/KPIs
-
-### `GET /dashboard/summary`
-- **Purpose**: Get general dashboard KPIs (total stock, active POs).
-- **Auth Required**: Yes
-- **Roles**: `DASHBOARD_READ`
-- **Query Params**: `locationId`
-- **Success (200)**: KPI metrics.
-
-### `GET /dashboard/low-stock`
-- **Purpose**: Get top low stock items for dashboard.
-- **Auth Required**: Yes
-- **Roles**: `DASHBOARD_READ`
-- **Query Params**: `locationId`, `limit`
-- **Success (200)**: List of low stock products.
-
-### `GET /dashboard/recent-activity`
-- **Purpose**: Get recent inventory transactions or orders (optional).
-- **Auth Required**: Yes
-- **Roles**: Authenticated users with dashboard access
-- **Query Params**: `limit`
-- **Success (200)**: Recent activity list.
-
----
-
-## 17. Reports
-
-### `POST /reports/generate`
-- **Purpose**: Request report generation (async/sync).
-- **Auth Required**: Yes
-- **Roles**: `REPORT_READ`
-- **Request Body**: Report type (INVENTORY_VALUATION, SALES_SUMMARY), parameters, outputFormat (PDF, CSV, EXCEL).
-- **Success (200)**: Report generation queued or data returned.
-
-### `GET /reports/download/{id}`
-- **Purpose**: Download a generated report file.
-- **Auth Required**: Yes
-- **Roles**: `REPORT_READ`
-- **Path Params**: `id` (String)
-- **Success (200)**: File stream (application/pdf, text/csv, etc.).
-
----
-
-## 18. Audit
-
-### `GET /audit/logs`
-- **Purpose**: Query system audit logs.
-- **Auth Required**: Yes
-- **Roles**: `ADMIN`
-- **Query Params**: `entityType`, `entityId`, `action`, `userId`, `fromDate`, `toDate`, `page`, `size`
-- **Success (200)**: Paginated audit logs.
-- **Notes**: Adheres to the strict audit trail requirement (created_by, updated_by, IP, previous/new state).
+- **Roles**: Authenticated
+- `GET /api/dashboard/summary` — Returns real-time metrics:
+  - Total Products, Locations, Suppliers
+  - Total Stock Units & Total Valuation ($)
+  - Low Stock Count & Out of Stock Count
+  - Pending Purchase Orders & Customer Orders
+  - Location stock distribution breakdown
+  - Category stock distribution breakdown
+  - Recent audit log transactions
+- `GET /api/reports/valuation?categoryId={id}&locationId={id}` — Detailed inventory asset valuation report with per-product calculations and totals

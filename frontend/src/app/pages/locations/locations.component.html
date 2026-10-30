@@ -1,0 +1,81 @@
+<section class="locations-page">
+  <header class="page-head">
+    <div>
+      <h1>Locations</h1>
+      <p>Manage stores and warehouses where inventory is held.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Location list</h2>
+      @if (loading) {
+        <p class="muted">Loading locations…</p>
+      } @else if (locations.length === 0) {
+        <p class="muted">No locations yet. Add the first store or warehouse.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Address</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (location of locations; track location.id) {
+                <tr>
+                  <td>{{ location.name }}</td>
+                  <td><span class="badge" [class.store]="location.type === 'STORE'" [class.warehouse]="location.type === 'WAREHOUSE'">{{ location.type }}</span></td>
+                  <td>{{ location.address || '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="startEdit(location)">Edit</button>
+                    <button type="button" class="link danger" (click)="remove(location)">Delete</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>{{ editingId === null ? 'New location' : 'Edit location' }}</h2>
+
+      <label for="name">Name</label>
+      <input id="name" type="text" formControlName="name" autocomplete="off" />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <span class="field-error">Name is required (max 100 characters).</span>
+      }
+
+      <label for="type">Type</label>
+      <select id="type" formControlName="type">
+        @for (t of locationTypes; track t) {
+          <option [value]="t">{{ t }}</option>
+        }
+      </select>
+
+      <label for="address">Address</label>
+      <textarea id="address" formControlName="address" rows="2" placeholder="Optional"></textarea>
+
+      <div class="form-actions">
+        <button type="submit" [disabled]="submitting">
+          {{ submitting ? 'Saving…' : editingId === null ? 'Create location' : 'Save changes' }}
+        </button>
+        @if (editingId !== null) {
+          <button type="button" class="secondary" (click)="startCreate()">Cancel</button>
+        }
+      </div>
+    </form>
+  </div>
+</section>

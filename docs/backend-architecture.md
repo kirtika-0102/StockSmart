@@ -38,11 +38,13 @@ dto/
 
 No separate `mapper/` package required — map in service layer.
 
+**Current code (Phase 1–2):** shared-layer packages (`controller`, `service`, `repository`, `entity`, `dto`) rather than `user/` feature folders. That matches the existing scaffold; `UserController` / `UserService` live there. Feature packages remain the documented target when modules grow.
+
 ```mermaid
 flowchart TD
     Root["com.stocksmart"] --> Config["config / exception / security"]
     Root --> Auth["auth / user"]
-    Root --> Features["product, inventory, order, ..."]
+    Root --> Features["category, product, inventory, order, ..."]
     Features --> Layers["controller → service → repository → entity"]
 ```
 

@@ -1,5 +1,162 @@
-<section class="home">
-  <h1>StockSmart foundation</h1>
-  <p>Phase 1 layout, routing, and HttpClient are in place. Catalog and inventory modules are not implemented yet.</p>
-  <div class="status">{{ backendStatus }}</div>
+<section class="dashboard-page">
+  <header class="page-head">
+    <div>
+      <h1>StockSmart Operations Dashboard</h1>
+      <p>Real-time retail inventory overview, warehouse distribution, and key performance metrics.</p>
+    </div>
+    <div class="system-status">
+      <span class="status-indicator"></span>
+      <span class="status-text">{{ backendStatus }}</span>
+    </div>
+  </header>
+
+  @if (kpis && kpis.activeAlertsCount > 0) {
+    <div class="alert-banner">
+      <div class="banner-content">
+        <span class="banner-icon">⚠️</span>
+        <div>
+          <strong>{{ kpis.activeAlertsCount }} Active Stock Alert(s) Detected!</strong>
+          <p>Some products are below reorder thresholds or completely out of stock.</p>
+        </div>
+      </div>
+      <a routerLink="/alerts" class="banner-action">View Alerts →</a>
+    </div>
+  }
+
+  <!-- KPI Cards Grid -->
+  @if (kpis) {
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-label">Total Products</span>
+        <span class="kpi-value">{{ kpis.totalProducts }}</span>
+        <span class="kpi-sub">Across all catalog categories</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-label">Total Stock Quantity</span>
+        <span class="kpi-value">{{ kpis.totalInventoryQuantity }}</span>
+        <span class="kpi-sub">Physical units stored</span>
+      </div>
+
+      <div class="kpi-card highlight">
+        <span class="kpi-label">Inventory Valuation</span>
+        <span class="kpi-value">${{ kpis.totalInventoryValue }}</span>
+        <span class="kpi-sub">Current asset worth</span>
+      </div>
+
+      <div class="kpi-card" [class.warning]="kpis.lowStockCount > 0">
+        <span class="kpi-label">Low Stock Items</span>
+        <span class="kpi-value">{{ kpis.lowStockCount }}</span>
+        <span class="kpi-sub">At or below reorder level</span>
+      </div>
+
+      <div class="kpi-card" [class.danger]="kpis.outOfStockCount > 0">
+        <span class="kpi-label">Out of Stock</span>
+        <span class="kpi-value">{{ kpis.outOfStockCount }}</span>
+        <span class="kpi-sub">Zero units balance</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-label">Pending POs</span>
+        <span class="kpi-value">{{ kpis.pendingPurchaseOrders }}</span>
+        <span class="kpi-sub">Awaiting vendor receipt</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-label">Customer Orders</span>
+        <span class="kpi-value">{{ kpis.totalOrders }}</span>
+        <span class="kpi-sub">Lifetime orders placed</span>
+      </div>
+    </div>
+
+    <!-- Distributions Grid -->
+    <div class="distributions-grid">
+      <!-- Stock by Location -->
+      <div class="panel">
+        <h2>Stock by Location</h2>
+        @if (kpis.locationDistribution.length === 0) {
+          <p class="muted">No locations configured yet.</p>
+        } @else {
+          <div class="distribution-list">
+            @for (loc of kpis.locationDistribution; track loc.locationId) {
+              <div class="dist-row">
+                <div class="dist-info">
+                  <strong>{{ loc.locationName }}</strong>
+                  <span class="badge" [class.store]="loc.locationType === 'STORE'" [class.warehouse]="loc.locationType === 'WAREHOUSE'">
+                    {{ loc.locationType }}
+                  </span>
+                </div>
+                <div class="dist-metrics">
+                  <span><strong>{{ loc.totalQuantity }}</strong> units</span>
+                  <span class="muted">${{ loc.totalValue }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Categories breakdown -->
+      <div class="panel">
+        <h2>Products by Category</h2>
+        @if (kpis.categoryDistribution.length === 0) {
+          <p class="muted">No categories created yet.</p>
+        } @else {
+          <div class="distribution-list">
+            @for (cat of kpis.categoryDistribution; track cat.categoryName) {
+              <div class="dist-row">
+                <div class="dist-info">
+                  <strong>{{ cat.categoryName }}</strong>
+                </div>
+                <div class="dist-metrics">
+                  <span><strong>{{ cat.productCount }}</strong> product(s)</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Quick Navigation Hub -->
+    <div class="panel quick-nav">
+      <h2>Quick Workflows</h2>
+      <div class="nav-tiles">
+        <a routerLink="/inventory" class="tile">
+          <span class="tile-icon">📦</span>
+          <strong>Manage Stock</strong>
+          <span>Adjust levels & scan barcodes</span>
+        </a>
+        <a routerLink="/orders" class="tile">
+          <span class="tile-icon">🛒</span>
+          <strong>Sales Orders</strong>
+          <span>Create and fulfill customer orders</span>
+        </a>
+        <a routerLink="/purchase-orders" class="tile">
+          <span class="tile-icon">🚚</span>
+          <strong>Purchase Orders</strong>
+          <span>Order & receive from suppliers</span>
+        </a>
+        <a routerLink="/transfers" class="tile">
+          <span class="tile-icon">🔄</span>
+          <strong>Stock Transfers</strong>
+          <span>Inter-location warehouse moves</span>
+        </a>
+        <a routerLink="/alerts" class="tile">
+          <span class="tile-icon">🔔</span>
+          <strong>Alerts Center</strong>
+          <span>Review low-stock notices</span>
+        </a>
+        <a routerLink="/reports" class="tile">
+          <span class="tile-icon">📊</span>
+          <strong>Valuation Reports</strong>
+          <span>Analyze stock investment</span>
+        </a>
+      </div>
+    </div>
+  } @else if (loading) {
+    <div class="panel">
+      <p class="muted">Loading dashboard operational metrics…</p>
+    </div>
+  }
 </section>

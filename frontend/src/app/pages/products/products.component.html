@@ -1,0 +1,101 @@
+<section class="products-page">
+  <header class="page-head">
+    <div>
+      <h1>Products</h1>
+      <p>Manage the product catalog. Each product has a unique SKU and optional barcode for scanning.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Product list</h2>
+      @if (loading) {
+        <p class="muted">Loading products…</p>
+      } @else if (products.length === 0) {
+        <p class="muted">No products yet. Add the first product.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>SKU</th>
+                <th>Barcode</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (product of products; track product.id) {
+                <tr>
+                  <td>{{ product.name }}</td>
+                  <td>{{ product.sku }}</td>
+                  <td>{{ product.barcode || '—' }}</td>
+                  <td>{{ product.categoryName || '—' }}</td>
+                  <td>{{ product.unitPrice != null ? product.unitPrice : '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="startEdit(product)">Edit</button>
+                    <button type="button" class="link danger" (click)="remove(product)">Delete</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>{{ editingId === null ? 'New product' : 'Edit product' }}</h2>
+
+      <label for="name">Name</label>
+      <input id="name" type="text" formControlName="name" autocomplete="off" />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <span class="field-error">Name is required (max 200 characters).</span>
+      }
+
+      <label for="sku">SKU</label>
+      <input id="sku" type="text" formControlName="sku" autocomplete="off" />
+      @if (form.controls.sku.touched && form.controls.sku.invalid) {
+        <span class="field-error">SKU is required (max 100 characters).</span>
+      }
+
+      <label for="barcode">Barcode</label>
+      <input id="barcode" type="text" formControlName="barcode" autocomplete="off" placeholder="Optional" />
+
+      <label for="categoryId">Category</label>
+      <select id="categoryId" formControlName="categoryId">
+        <option [ngValue]="null">None</option>
+        @for (cat of categories; track cat.id) {
+          <option [ngValue]="cat.id">{{ cat.name }}</option>
+        }
+      </select>
+
+      <label for="unitPrice">Unit Price</label>
+      <input id="unitPrice" type="number" formControlName="unitPrice" min="0" step="0.01" placeholder="Optional" />
+      @if (form.controls.unitPrice.touched && form.controls.unitPrice.invalid) {
+        <span class="field-error">Unit price must be zero or positive.</span>
+      }
+
+      <label for="description">Description</label>
+      <textarea id="description" formControlName="description" rows="3" placeholder="Optional"></textarea>
+
+      <div class="form-actions">
+        <button type="submit" [disabled]="submitting">
+          {{ submitting ? 'Saving…' : editingId === null ? 'Create product' : 'Save changes' }}
+        </button>
+        @if (editingId !== null) {
+          <button type="button" class="secondary" (click)="startCreate()">Cancel</button>
+        }
+      </div>
+    </form>
+  </div>
+</section>

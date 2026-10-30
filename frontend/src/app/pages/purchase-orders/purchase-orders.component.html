@@ -1,0 +1,173 @@
+<section class="orders-page">
+  <header class="page-head">
+    <div>
+      <h1>Purchase Orders</h1>
+      <p>Order stock from suppliers and receive shipments into warehouses and stores.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <!-- List -->
+    <div class="panel">
+      <h2>Purchase Orders List</h2>
+      @if (loading) {
+        <p class="muted">Loading purchase orders…</p>
+      } @else if (orders.length === 0) {
+        <p class="muted">No purchase orders yet. Create the first order.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>PO #</th>
+                <th>Supplier</th>
+                <th>Destination</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (po of orders; track po.id) {
+                <tr [class.selected]="selectedPo?.id === po.id">
+                  <td><strong>PO-{{ po.id }}</strong></td>
+                  <td>{{ po.supplierName }}</td>
+                  <td>{{ po.locationName }}</td>
+                  <td>{{ po.items.length }} line(s)</td>
+                  <td>
+                    <span class="badge" [class.submitted]="po.status === 'SUBMITTED'" [class.received]="po.status === 'RECEIVED'" [class.cancelled]="po.status === 'CANCELLED'">
+                      {{ po.status }}
+                    </span>
+                  </td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="viewDetails(po)">Details</button>
+                    @if (po.status === 'SUBMITTED') {
+                      <button type="button" class="link success" (click)="receiveOrder(po)">Receive</button>
+                      <button type="button" class="link danger" (click)="cancelOrder(po)">Cancel</button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Create Form -->
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>New Purchase Order</h2>
+
+      <label for="supplierSelect">Supplier</label>
+      <select id="supplierSelect" formControlName="supplierId">
+        <option [ngValue]="null">Select supplier…</option>
+        @for (s of suppliers; track s.id) {
+          <option [ngValue]="s.id">{{ s.name }}</option>
+        }
+      </select>
+      @if (form.controls.supplierId.touched && form.controls.supplierId.invalid) {
+        <span class="field-error">Supplier is required.</span>
+      }
+
+      <label for="locationSelect">Destination Location</label>
+      <select id="locationSelect" formControlName="locationId">
+        <option [ngValue]="null">Select destination location…</option>
+        @for (l of locations; track l.id) {
+          <option [ngValue]="l.id">{{ l.name }} ({{ l.type }})</option>
+        }
+      </select>
+      @if (form.controls.locationId.touched && form.controls.locationId.invalid) {
+        <span class="field-error">Location is required.</span>
+      }
+
+      <div class="line-items-header">
+        <h3>Order Items</h3>
+        <button type="button" class="secondary small" (click)="addItem()">+ Add Item</button>
+      </div>
+
+      <div formArrayName="items" class="line-items">
+        @for (itemGroup of items.controls; track $index) {
+          <div [formGroupName]="$index" class="item-row">
+            <div class="field-prod">
+              <label>Product</label>
+              <select formControlName="productId">
+                <option [ngValue]="null">Select product…</option>
+                @for (p of products; track p.id) {
+                  <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+                }
+              </select>
+            </div>
+            <div class="field-qty">
+              <label>Quantity</label>
+              <input type="number" formControlName="quantity" min="1" />
+            </div>
+            <div class="field-cost">
+              <label>Unit Cost</label>
+              <input type="number" formControlName="unitCost" min="0" step="0.01" placeholder="Optional" />
+            </div>
+            @if (items.length > 1) {
+              <button type="button" class="btn-remove" (click)="removeItem($index)" title="Remove item">✕</button>
+            }
+          </div>
+        }
+      </div>
+
+      <button type="submit" [disabled]="submitting">
+        {{ submitting ? 'Submitting…' : 'Create Purchase Order' }}
+      </button>
+    </form>
+  </div>
+
+  <!-- PO Details Modal/Panel -->
+  @if (selectedPo) {
+    <div class="panel details-panel">
+      <div class="details-head">
+        <div>
+          <h2>PO-{{ selectedPo.id }} Details</h2>
+          <span class="muted">
+            Supplier: <strong>{{ selectedPo.supplierName }}</strong> | Destination: <strong>{{ selectedPo.locationName }}</strong> | Status: <strong>{{ selectedPo.status }}</strong>
+          </span>
+        </div>
+        <div class="details-actions">
+          @if (selectedPo.status === 'SUBMITTED') {
+            <button type="button" class="primary" (click)="receiveOrder(selectedPo)">Receive Shipment</button>
+            <button type="button" class="danger" (click)="cancelOrder(selectedPo)">Cancel Order</button>
+          }
+          <button type="button" class="secondary" (click)="closeDetails()">Close</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Quantity Ordered</th>
+              <th>Quantity Received</th>
+              <th>Unit Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of selectedPo.items; track line.id) {
+              <tr>
+                <td>{{ line.productName }}</td>
+                <td>{{ line.productSku }}</td>
+                <td>{{ line.quantityOrdered }}</td>
+                <td><strong>{{ line.quantityReceived }}</strong></td>
+                <td>{{ line.unitCost != null ? line.unitCost : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>

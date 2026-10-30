@@ -1,0 +1,162 @@
+<section class="orders-page">
+  <header class="page-head">
+    <div>
+      <h1>Sales Orders</h1>
+      <p>Process customer orders, verify available stock at location, and fulfill shipments.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <!-- List -->
+    <div class="panel">
+      <h2>Sales Orders List</h2>
+      @if (loading) {
+        <p class="muted">Loading orders…</p>
+      } @else if (orders.length === 0) {
+        <p class="muted">No orders yet. Place a new sales order.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Location</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (order of orders; track order.id) {
+                <tr [class.selected]="selectedOrder?.id === order.id">
+                  <td><strong>ORD-{{ order.id }}</strong></td>
+                  <td>{{ order.locationName }}</td>
+                  <td>{{ order.items.length }} line(s)</td>
+                  <td>${{ order.totalAmount }}</td>
+                  <td>
+                    <span class="badge" [class.pending]="order.status === 'PENDING'" [class.completed]="order.status === 'COMPLETED'" [class.cancelled]="order.status === 'CANCELLED'">
+                      {{ order.status }}
+                    </span>
+                  </td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="viewDetails(order)">Details</button>
+                    @if (order.status === 'PENDING') {
+                      <button type="button" class="link success" (click)="confirmOrder(order)">Fulfill</button>
+                      <button type="button" class="link danger" (click)="cancelOrder(order)">Cancel</button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <!-- Create Form -->
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>New Sales Order</h2>
+
+      <label for="orderLoc">Fulfillment Location</label>
+      <select id="orderLoc" formControlName="locationId">
+        <option [ngValue]="null">Select location…</option>
+        @for (l of locations; track l.id) {
+          <option [ngValue]="l.id">{{ l.name }} ({{ l.type }})</option>
+        }
+      </select>
+      @if (form.controls.locationId.touched && form.controls.locationId.invalid) {
+        <span class="field-error">Location is required.</span>
+      }
+
+      <div class="line-items-header">
+        <h3>Order Items</h3>
+        <button type="button" class="secondary small" (click)="addItem()">+ Add Item</button>
+      </div>
+
+      <div formArrayName="items" class="line-items">
+        @for (itemGroup of items.controls; track $index) {
+          <div [formGroupName]="$index" class="item-row">
+            <div class="field-prod">
+              <label>Product</label>
+              <select formControlName="productId">
+                <option [ngValue]="null">Select product…</option>
+                @for (p of products; track p.id) {
+                  <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+                }
+              </select>
+            </div>
+            <div class="field-qty">
+              <label>Quantity</label>
+              <input type="number" formControlName="quantity" min="1" />
+            </div>
+            <div class="field-price">
+              <label>Unit Price</label>
+              <input type="number" formControlName="unitPrice" min="0" step="0.01" placeholder="Auto" />
+            </div>
+            @if (items.length > 1) {
+              <button type="button" class="btn-remove" (click)="removeItem($index)" title="Remove item">✕</button>
+            }
+          </div>
+        }
+      </div>
+
+      <button type="submit" [disabled]="submitting">
+        {{ submitting ? 'Submitting…' : 'Submit Sales Order' }}
+      </button>
+    </form>
+  </div>
+
+  <!-- Order Details Modal/Panel -->
+  @if (selectedOrder) {
+    <div class="panel details-panel">
+      <div class="details-head">
+        <div>
+          <h2>ORD-{{ selectedOrder.id }} Details</h2>
+          <span class="muted">
+            Location: <strong>{{ selectedOrder.locationName }}</strong> | Status: <strong>{{ selectedOrder.status }}</strong> | Total: <strong>${{ selectedOrder.totalAmount }}</strong>
+          </span>
+        </div>
+        <div class="details-actions">
+          @if (selectedOrder.status === 'PENDING') {
+            <button type="button" class="primary" (click)="confirmOrder(selectedOrder)">Fulfill & Reduce Stock</button>
+            <button type="button" class="danger" (click)="cancelOrder(selectedOrder)">Cancel Order</button>
+          }
+          <button type="button" class="secondary" (click)="closeDetails()">Close</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of selectedOrder.items; track line.id) {
+              <tr>
+                <td>{{ line.productName }}</td>
+                <td>{{ line.productSku }}</td>
+                <td><strong>{{ line.quantity }}</strong></td>
+                <td>${{ line.unitPrice != null ? line.unitPrice : 0 }}</td>
+                <td>${{ (line.unitPrice != null ? line.unitPrice : 0) * line.quantity }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</section>

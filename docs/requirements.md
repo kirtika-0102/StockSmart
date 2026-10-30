@@ -158,4 +158,4 @@ Everything in **Must** rows above plus dashboard KPIs and one demo data set.
 
 ## 10. Future enhancements
 
-See [PROJECT.md](../PROJECT.md): RFID hardware, GS1, immutable ledger, Flyway, MapStruct, RFC 7807, refresh tokens, granular permissions, offline scans, ML forecasting.
+See [README.md](../README.md): RFID hardware, GS1, immutable ledger, Flyway, MapStruct, RFC 7807, refresh tokens, granular permissions, offline scans, ML forecasting.

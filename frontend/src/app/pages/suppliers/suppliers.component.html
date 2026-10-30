@@ -1,0 +1,162 @@
+<section class="suppliers-page">
+  <header class="page-head">
+    <div>
+      <h1>Suppliers</h1>
+      <p>Manage suppliers who provide products to your inventory.</p>
+    </div>
+  </header>
+
+  @if (message) {
+    <div class="notice success" role="status">{{ message }}</div>
+  }
+  @if (errorMessage) {
+    <div class="notice error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Supplier list</h2>
+      @if (loading) {
+        <p class="muted">Loading suppliers…</p>
+      } @else if (suppliers.length === 0) {
+        <p class="muted">No suppliers yet. Add the first supplier.</p>
+      } @else {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (supplier of suppliers; track supplier.id) {
+                <tr [class.highlight]="selectedSupplier?.id === supplier.id">
+                  <td>{{ supplier.name }}</td>
+                  <td>{{ supplier.contactName || '—' }}</td>
+                  <td>{{ supplier.email || '—' }}</td>
+                  <td>{{ supplier.phone || '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="link" (click)="selectSupplier(supplier)">Products</button>
+                    <button type="button" class="link" (click)="startEdit(supplier)">Edit</button>
+                    <button type="button" class="link danger" (click)="remove(supplier)">Delete</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <form class="panel form" [formGroup]="form" (ngSubmit)="submit()">
+      <h2>{{ editingId === null ? 'New supplier' : 'Edit supplier' }}</h2>
+
+      <label for="name">Name</label>
+      <input id="name" type="text" formControlName="name" autocomplete="off" />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <span class="field-error">Name is required (max 150 characters).</span>
+      }
+
+      <label for="contactName">Contact name</label>
+      <input id="contactName" type="text" formControlName="contactName" autocomplete="off" placeholder="Optional" />
+
+      <label for="email">Email</label>
+      <input id="email" type="email" formControlName="email" autocomplete="off" placeholder="Optional" />
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <span class="field-error">Enter a valid email address.</span>
+      }
+
+      <label for="phone">Phone</label>
+      <input id="phone" type="text" formControlName="phone" autocomplete="off" placeholder="Optional" />
+
+      <label for="address">Address</label>
+      <textarea id="address" formControlName="address" rows="2" placeholder="Optional"></textarea>
+
+      <div class="form-actions">
+        <button type="submit" [disabled]="submitting">
+          {{ submitting ? 'Saving…' : editingId === null ? 'Create supplier' : 'Save changes' }}
+        </button>
+        @if (editingId !== null) {
+          <button type="button" class="secondary" (click)="startCreate()">Cancel</button>
+        }
+      </div>
+    </form>
+  </div>
+
+  @if (selectedSupplier) {
+    <div class="sub-section">
+      <div class="panel">
+        <div class="sub-head">
+          <div>
+            <h2>Products for {{ selectedSupplier.name }}</h2>
+            <p class="muted">Manage catalog items supplied by this vendor.</p>
+          </div>
+          <button type="button" class="secondary" (click)="closeProducts()">Close</button>
+        </div>
+
+        <div class="sub-layout">
+          <div class="sub-list">
+            @if (loadingProducts) {
+              <p class="muted">Loading linked products…</p>
+            } @else if (supplierProducts.length === 0) {
+              <p class="muted">No products linked to this supplier yet.</p>
+            } @else {
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>SKU</th>
+                      <th>Unit Cost</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (sp of supplierProducts; track sp.id) {
+                      <tr>
+                        <td>{{ sp.productName }}</td>
+                        <td>{{ sp.productSku }}</td>
+                        <td>{{ sp.unitCost != null ? sp.unitCost : '—' }}</td>
+                        <td class="actions">
+                          <button type="button" class="link danger" (click)="unlinkProduct(sp)">Unlink</button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+
+          <form class="form link-form" [formGroup]="linkForm" (ngSubmit)="linkProduct()">
+            <h3>Link a product</h3>
+            <label for="linkProductId">Select Product</label>
+            <select id="linkProductId" formControlName="productId">
+              <option [ngValue]="null">Select product…</option>
+              @for (p of availableProducts(); track p.id) {
+                <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+              }
+            </select>
+            @if (linkForm.controls.productId.touched && linkForm.controls.productId.invalid) {
+              <span class="field-error">Please choose a product to link.</span>
+            }
+
+            <label for="linkUnitCost">Unit Cost</label>
+            <input id="linkUnitCost" type="number" formControlName="unitCost" min="0" step="0.01" placeholder="Optional cost" />
+            @if (linkForm.controls.unitCost.touched && linkForm.controls.unitCost.invalid) {
+              <span class="field-error">Cost must be zero or positive.</span>
+            }
+
+            <button type="submit" [disabled]="linkingProduct || availableProducts().length === 0">
+              {{ linkingProduct ? 'Linking…' : 'Link to Supplier' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  }
+</section>

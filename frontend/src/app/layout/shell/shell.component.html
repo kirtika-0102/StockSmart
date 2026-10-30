@@ -3,17 +3,24 @@
     <div class="brand">StockSmart</div>
     <nav>
       @for (item of navItems; track item.path) {
-        <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
-          {{ item.label }}
-        </a>
+        @if (canSee(item.roles)) {
+          <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+            {{ item.label }}
+          </a>
+        }
       }
     </nav>
-    <p class="sidebar-note">Business modules will be added in later phases.</p>
+    <p class="sidebar-note">Products, locations, and inventory come next.</p>
   </aside>
   <div class="main">
     <header class="topbar">
       <span class="title">Retail Inventory Management</span>
-      <span class="badge">B.Tech project</span>
+      <div class="session">
+        @if (currentUser$ | async; as user) {
+          <span class="user">{{ user.fullName }} ({{ user.roles.join(', ') }})</span>
+        }
+        <button type="button" class="logout" (click)="logout()">Log out</button>
+      </div>
     </header>
     <section class="content">
       <router-outlet />

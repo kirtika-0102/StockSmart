@@ -20,13 +20,71 @@ sequenceDiagram
     S->>R: findByUsername
     R-->>S: User + roles
     S-->>C: JWT
-    C-->>A: token
-    A-->>U: Navigate dashboard
+    C-->>A: accessToken JWT
+    A-->>U: Store sessionStorage, navigate home
+```
+
+Logout is **client-only** (clear `access_token` / `auth_user`). There is no `POST /api/auth/refresh` or `POST /api/auth/logout`.
+
+---
+
+## 2. Admin user management
+
+Implemented: `UserController` (`/api/users`) is **ADMIN-only**. Role is set on create/update (one role per user). `DELETE` deactivates the account; it does not hard-delete the row.
+
+```mermaid
+sequenceDiagram
+    participant A as Angular Users page
+    participant C as UserController
+    participant S as UserService
+    participant R as UserRepository
+
+    A->>C: GET /api/users (Bearer JWT)
+    C->>S: list()
+    S->>R: findAll
+    R-->>S: users
+    S-->>C: UserResponse list
+    C-->>A: 200
+
+    A->>C: POST /api/users
+    C->>S: create(dto)
+    S->>S: unique username/email, BCrypt, assign Role
+    S->>R: save
+    R-->>S: User
+    S-->>C: UserResponse
+    C-->>A: 201 Created
 ```
 
 ---
 
-## 2. Create product
+## 3. Category CRUD
+
+Implemented: `CategoryController` (`/api/categories`). Read: any authenticated role. Write: `ADMIN` or `INVENTORY_MANAGER`.
+
+```mermaid
+sequenceDiagram
+    participant A as Angular Categories page
+    participant C as CategoryController
+    participant S as CategoryService
+    participant R as CategoryRepository
+
+    A->>C: GET /api/categories
+    C->>S: list()
+    S->>R: findAllByOrderByNameAsc
+    R-->>S: categories
+    S-->>C: CategoryResponse list
+    C-->>A: 200
+
+    A->>C: POST /api/categories
+    C->>S: create(dto)
+    S->>S: unique name, optional parent
+    S->>R: save
+    C-->>A: 201 Created
+```
+
+---
+
+## 4. Create product
 
 ```mermaid
 sequenceDiagram
@@ -46,7 +104,7 @@ sequenceDiagram
 
 ---
 
-## 3. Receive purchase order
+## 5. Receive purchase order
 
 ```mermaid
 sequenceDiagram
@@ -71,7 +129,7 @@ sequenceDiagram
 
 ---
 
-## 4. Confirm sales order
+## 6. Confirm sales order
 
 ```mermaid
 sequenceDiagram
@@ -94,7 +152,7 @@ sequenceDiagram
 
 ---
 
-## 5. Stock transfer
+## 7. Stock transfer
 
 ```mermaid
 sequenceDiagram
@@ -111,7 +169,7 @@ sequenceDiagram
 
 ---
 
-## 6. Barcode lookup
+## 8. Barcode lookup
 
 ```mermaid
 sequenceDiagram
@@ -129,7 +187,7 @@ sequenceDiagram
 
 ---
 
-## 7. Dashboard KPI
+## 9. Dashboard KPI
 
 ```mermaid
 sequenceDiagram

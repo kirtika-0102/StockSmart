@@ -76,6 +76,7 @@ erDiagram
     }
 ```
 
+- **Implemented:** `CATEGORIES` via JPA (`Category` entity). Unique `NAME`; optional `PARENT_ID`; audit timestamps. `PRODUCTS` is not implemented yet.
 - **Brand** table omitted for simplicity (optional future add-on).
 - **RFID:** optional `rfid_tag` column on `PRODUCT` as placeholder only — no hardware integration.
 
@@ -297,4 +298,4 @@ erDiagram
 | Immutable `STOCK_TRANSACTIONS` ledger rules | Simplified inventory + optional history |
 | `AUDIT_LOG` with CLOB snapshots | JPA audit fields sufficient for project |
 
-See **Future enhancements** in [PROJECT.md](../PROJECT.md).
+See **Future enhancements** in [README.md](../README.md).

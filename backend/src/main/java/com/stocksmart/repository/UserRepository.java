@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.stocksmart.entity.RoleName;
 import com.stocksmart.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -13,4 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    boolean existsByEmailAndIdNot(String email, Long id);
+
+    long countByRoles_NameAndActiveTrue(RoleName name);
 }

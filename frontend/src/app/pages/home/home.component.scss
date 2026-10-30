@@ -1,18 +1,245 @@
-.home h1 {
-  margin: 0 0 0.75rem;
-  color: #0f172a;
+.dashboard-page h1 {
+  margin: 0 0 0.35rem;
 }
 
-.home p {
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.page-head p,
+.muted {
   color: #475569;
-  max-width: 40rem;
+  margin: 0;
 }
 
-.status {
-  margin-top: 1.25rem;
-  padding: 0.9rem 1rem;
+.system-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+/* Alert Warning Banner */
+.alert-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.banner-icon {
+  font-size: 1.5rem;
+}
+
+.banner-content strong {
+  color: #92400e;
+  font-size: 0.95rem;
+}
+
+.banner-content p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: #b45309;
+}
+
+.banner-action {
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.kpi-card {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
-  color: #1e293b;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kpi-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.35rem 0 0.2rem;
+}
+
+.kpi-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.kpi-card.highlight .kpi-value {
+  color: #4f46e5;
+}
+
+.kpi-card.warning .kpi-value {
+  color: #d97706;
+}
+
+.kpi-card.danger .kpi-value {
+  color: #dc2626;
+}
+
+/* Distributions */
+.distributions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.15rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+}
+
+.distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dist-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.dist-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dist-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.85rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge.store {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.badge.warehouse {
+  background: #faf5ff;
+  color: #7e22ce;
+}
+
+/* Quick Nav Tiles */
+.nav-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  color: #0f172a;
+  transition: all 0.15s ease;
+}
+
+.tile:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.tile-icon {
+  font-size: 1.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.tile strong {
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+
+.tile span:last-child {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+@media (max-width: 800px) {
+  .distributions-grid {
+    grid-template-columns: 1fr;
+  }
 }

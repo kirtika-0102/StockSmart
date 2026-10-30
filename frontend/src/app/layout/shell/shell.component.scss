@@ -66,12 +66,24 @@
   color: #0f172a;
 }
 
-.badge {
-  font-size: 0.75rem;
-  background: #e0e7ff;
-  color: #3730a3;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
+.session {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.logout {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
 }
 
 .content {
